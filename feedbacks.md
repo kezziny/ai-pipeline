@@ -134,6 +134,18 @@ This document aggregates architectural refinements, role enhancements, and workf
 
 ---
 
+### FB-09: PM Synchronizes Issue Title with Feature Name
+- **Problem**: Incoming issues often have vague, informal, or placeholder titles. Currently, `role-product-manager` generates a `# [Feature Name]: Specification` top-level header inside the issue body, but leaves the GitHub issue title untouched.
+- **Proposed Solution**:
+  - `role-product-manager` must autonomously refine and set the GitHub issue title to match the formalized feature name:
+    `gh issue edit <ISSUE_NUMBER> --title "<Feature Title>" --body-file -`
+  - Ensures clean project board cards and consistent branch naming downstream (`feat/<issue-num>-<slug>`).
+- **Affected Components**:
+  - `role-product-manager/SKILL.md` (Autonomous Decisions, GitHub Issue Synchronization Procedure)
+  - `README.md`, `instruction.md` (PM loop prompts)
+
+---
+
 ## Batch Implementation Tracker
 
 | ID | Title | Priority | Status |
@@ -146,6 +158,8 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-06** | Code Reviewer Focus: Feature Fidelity, Code Quality & Anti-Duplication | High | ✅ Implemented |
 | **FB-07** | Closed-Loop AGENTS.md Evolution (Implementer Updates, Reviewer Verifies) | High | ✅ Implemented |
 | **FB-08** | PM High-Level Focus (Strict ban on file paths and technical implementation) | High | ✅ Implemented |
+| **FB-09** | PM Synchronizes Issue Title with Feature Name (`gh issue edit --title`) | Medium | ✅ Implemented |
+
 
 
 

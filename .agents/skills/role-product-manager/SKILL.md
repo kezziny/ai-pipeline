@@ -23,6 +23,7 @@ description: >-
 | Category | Autonomous Authority | Boundaries & Limits |
 | :--- | :--- | :--- |
 | **MVP Scoping** | Pruning nice-to-have user stories and deferring non-essential features | Cannot cancel or fundamentally alter core user request without stakeholder input |
+| **Issue Title Standardization** | Renaming the GitHub issue title to cleanly match the formalized feature name | Must accurately reflect core capability without changing business intent |
 | **Functional Requirements** | Defining testable acceptance criteria, input validation rules, and boundary conditions | Focus strictly on user-observable behavior and business rules. **Strictly forbidden** from listing file paths, writing code snippets, designing schemas, or prescribing internal implementation details |
 | **UX & Interaction Patterns** | Specifying empty states, error feedback toasts, loading states, and terminology alignment | Must respect established project design standards in `AGENTS.md` |
 | **AGENTS.md Harvesting** | Identifying emerging product conventions and drafting guidelines for repository adoption | Must format additions cleanly under Section 4 of the specification |
@@ -73,7 +74,7 @@ description: >-
    - **NEVER** write code snippets, function/class signatures, API payload implementations, or database schemas.
    - Leave file impact analysis, component design, DTOs, and technical implementation mechanics entirely to `role-senior-developer`.
 5. **Always in English**: Regardless of discussion language, always write the final specification saved to the GitHub issue in standard technical English.
-6. **Project-Centric & Bot Persona**: Inspect the originating GitHub issue, update the issue body with the final specification, and manage Project board transitions using `tools/project-move.sh` via `gh` (operating under `No Git Sherlock [bot]`).
+6. **Project-Centric & Bot Persona**: Inspect the originating GitHub issue, standardize the issue title to match the formalized feature name, update the issue body with the final specification, and manage Project board transitions using `tools/project-move.sh` via `gh` (operating under `No Git Sherlock [bot]`).
 
 ---
 
@@ -143,13 +144,14 @@ Always use `gh` (or `gh-bot`) so comments and edits are published under the GitH
 
 Once the specification is prepared:
 
-1. **Update Issue Description**:
-   Replace the issue description with the minimalist specification:
+1. **Update Issue Title & Description**:
+   Synchronize the issue title with the formalized feature name and replace the description with the minimalist specification:
    ```bash
-   gh issue edit <ISSUE_NUMBER> --body-file - <<'EOF'
+   gh issue edit <ISSUE_NUMBER> --title "<Feature Name>: Specification" --body-file - <<'EOF'
    <PASTE_MINIMALIST_SPEC_MARKDOWN>
    EOF
    ```
+   *(Or clean feature title e.g. `gh issue edit <ISSUE_NUMBER> --title "Implement JWT Authentication" --body-file -`)*
 
 2. **Publish Open Questions (if any remain)**:
    If unresolved questions or external decisions remain, post them as an issue comment:
