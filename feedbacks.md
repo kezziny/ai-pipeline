@@ -100,6 +100,20 @@ This document aggregates architectural refinements, role enhancements, and workf
 
 ---
 
+## 4. Repository Evolution & Knowledge Harvesting
+
+### FB-07: Closed-Loop AGENTS.md Evolution (Implementer Updates, Reviewer Verifies)
+- **Problem**: When `role-product-manager` identifies new conventions or UX rules, it logs them under `## 4. Proposed AGENTS.md Additions` in the issue description. Currently, these proposals sit passively in the issue body and often fail to make it into the codebase's actual `AGENTS.md`.
+- **Proposed Solution**:
+  - **Implementer Action**: When implementing an issue, `role-implementer` must inspect `## 4. Proposed AGENTS.md Additions` in the issue body. If new conventions are proposed (and not marked `None`), the implementer must edit `AGENTS.md` in the feature branch to incorporate the new guidelines as part of the PR diff.
+  - **Reviewer Validation**: `role-code-reviewer` must include an explicit quality gate checking that `AGENTS.md` was updated to reflect the PM requirements. If the PM proposed additions but `AGENTS.md` was not updated (or was updated inaccurately), the reviewer requests changes.
+- **Affected Components**:
+  - `role-implementer/SKILL.md` (step added to commit `AGENTS.md` updates alongside code)
+  - `role-code-reviewer/SKILL.md` (audit checklist updated to enforce `AGENTS.md` update validation)
+  - `AGENTS.md` (Section 6 Continuous Improvement Engine updated)
+
+---
+
 ## Batch Implementation Tracker
 
 | ID | Title | Priority | Status |
@@ -110,4 +124,6 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-04** | Redefined QA Responsibilities (Coverage Audit & Live UX / Look-and-Feel) | High | ⏳ Pending |
 | **FB-05** | Compact Technical Plans with `<details>` Expandable Blocks | Medium | ⏳ Pending |
 | **FB-06** | Code Reviewer Focus: Feature Fidelity, Code Quality & Anti-Duplication | High | ⏳ Pending |
+| **FB-07** | Closed-Loop AGENTS.md Evolution (Implementer Updates, Reviewer Verifies) | High | ⏳ Pending |
+
 
