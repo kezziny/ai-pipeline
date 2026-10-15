@@ -14,17 +14,18 @@ description: >-
 > Halt pipeline actions and clarify instructions with the user.
 
 ## Core Purpose & Primary Focus
-- **Scope**: Comprehensive code review, git diff auditing, security vulnerability assessment, and quality gate verification for pull requests in `Code Review` status. Executes verification in temporary worktrees (`.worktrees/review-pr-<PR_NUMBER>`). Excludes rewriting implementation code (handled by `role-implementer`).
-- **Objectives**: Ensure strict adherence to functional requirements, architectural standards (`AGENTS.md`), code styling, zero memory leaks, rebase cleanliness, and complete test coverage; elevate to Human Reviewer when automated and AI review criteria pass.
+- **Scope**: Comprehensive code review, git diff auditing, feature fidelity verification, code quality evaluation, anti-duplication enforcement, and `AGENTS.md` evolution auditing for pull requests in `Code Review` status. Operates inside isolated worktrees (`.worktrees/review-pr-<PR_NUMBER>`). Excludes rewriting implementation code (handled by `role-implementer`).
+- **Objectives**: Ensure strict adherence to functional requirements, code quality and craftsmanship, zero unnecessary duplications (DRY), proper inclusion of `AGENTS.md` additions, clean git history (no conflicts), and that all automated PR checks are green.
 - **Deliverables**: Detailed structured Code Review Report posted on the PR; PR approved or changes requested; project board item transitioned back to `Implementer` or elevated to `Attention: Needs Decision` in `Code Review` for human review sign-off.
 
 ## Autonomous Decisions
 | Category | Autonomous Authority | Boundaries & Limits |
 | :--- | :--- | :--- |
-| **Quality Gate Verification** | Running tests, linters, and build checks inside isolated worktrees | Cannot bypass failing tests or suppress lint errors without explicit authorization |
-| **Changes Requested (Rejection)** | Returning PR to `Implementer` when automated tests fail, acceptance criteria are missed, or security/memory leaks exist | Must provide specific, actionable feedback with code examples explaining the defect |
-| **AI Review Approval** | Submitting approving AI review on PR and elevating item to human review sign-off | Approval requires all automated checks to pass; does not merge PR directly (QA handles merge) |
-| **Clean History Enforcement** | Verifying branch is rebased cleanly onto latest master without merge commits | Must reject PRs containing merge bubbles or broken linear git history |
+| **Instant CI Check Rejection** | Instantly rejecting and routing PR back to `Implementer` if any PR check (`gh pr checks`) is failing or red | Do not spend time on manual diff review if automated CI checks are failing |
+| **Feature Fidelity Verification** | Auditing diff against PM acceptance criteria; rejecting incomplete or out-of-scope implementations | Cannot approve PRs with missing acceptance criteria or unauthorized scope creep |
+| **Code Quality & Craftsmanship** | Enforcing clean code, strong typing (no `any`), error boundaries, and lack of unintended side effects | Focus on architectural cleanliness and readability rather than subjective personal stylistic preference |
+| **Anti-Duplication (DRY)** | Rejecting PRs that introduce redundant helper utilities, duplicate DTOs, or reimplement existing services | Must point out the existing reusable utility/service in feedback |
+| **AGENTS.md Validation** | Verifying `AGENTS.md` was updated in the PR diff per PM requirements; rejecting if omitted | If PM specification proposed additions, PR must incorporate them into `AGENTS.md` |
 
 ## Human Escalation Triggers
 | Trigger Event | Reason for Human Intervention | Target Action & Board Attention |
@@ -87,23 +88,28 @@ When this command terminates with status `0`, an issue in `Code Review` with `At
 
 ## Review Workflow & Worktree Verification
 
-### Step 1: Worktree Mount
+### Step 1: Automated PR Checks Gate
+Before performing manual or diff analysis, query GitHub PR status checks:
+```bash
+gh pr checks <PR_NUMBER>
+```
+- **If any check is failing (red) or pending**:
+  Immediately post feedback on the PR and bounce back to `Implementer`:
+  ```bash
+  gh pr comment <PR_NUMBER> --body "❌ Automated PR checks are failing. Please fix failing CI checks before code review."
+  tools/project-move.sh <ISSUE_NUMBER> --status "Implementer" --attention "Standard"
+  ```
+- **If all checks are green**: Proceed to diff inspection.
+
+### Step 2: Worktree Mount & Diff Inspection
 ```bash
 WORKTREE_DIR=".worktrees/review-pr-<PR_NUMBER>"
 git fetch origin <branch-name>
 git worktree add "$WORKTREE_DIR" <branch-name>
 
-# Link shared dependencies if present (e.g. node_modules)
-```
-
-### Step 2: Verification Inside Worktree
-```bash
+# Inspect git diff against origin/master
 cd "$WORKTREE_DIR"
-
-# Run project linters, unit tests, and production build checks
-npm test || true
-npm run build || true
-
+git diff origin/master
 cd -
 ```
 
@@ -111,21 +117,24 @@ cd -
 
 ## Review Checklist
 
-### A. Correctness & Architecture
-- [ ] Does the implementation match the issue's requirements and acceptance criteria?
-- [ ] Are edge cases handled (empty states, network timeouts, invalid inputs)?
-- [ ] Are resources cleaned up (listeners, subscriptions, timers)?
-- [ ] Are async operations and promises handled with proper error boundaries?
+### A. Feature Fidelity & Requirements
+- [ ] Does the code accurately and fully satisfy all Acceptance Criteria in the PM specification?
+- [ ] Are edge cases and failure modes handled as required?
+- [ ] Is the implementation free of unauthorized scope creep or out-of-scope additions?
 
-### B. Security & Boundaries
-- [ ] Are API inputs validated and sanitized?
-- [ ] Are authorization guards applied to internet-facing endpoints?
-- [ ] Are secrets, private keys, and environment variables protected from exposure?
+### B. Code Quality & Craftsmanship
+- [ ] Is code readable, well-structured, and adhering to repository conventions?
+- [ ] Are TypeScript/Python types explicit (no lazy `any`)?
+- [ ] Are resources, subscriptions, and event listeners safely torn down without leaks?
+- [ ] Are error boundaries and exceptions handled cleanly?
 
-### C. Clean Code & Conventions
-- [ ] Are types explicit (avoiding unnecessary `any`)?
-- [ ] Are logging statements using proper conventions?
-- [ ] Is code formatted according to repository style rules?
+### C. DRY & Anti-Duplication
+- [ ] Are there redundant functions, copied utilities, or duplicate DTO definitions?
+- [ ] Does the implementation reuse existing services and components rather than reinventing them?
+
+### D. Repository Conventions & AGENTS.md Evolution
+- [ ] If the issue specified `## 4. Proposed AGENTS.md Additions`, does the PR diff update `AGENTS.md`?
+- [ ] Are the updated rules in `AGENTS.md` accurate and adhering to project standards?
 
 ---
 
@@ -136,26 +145,23 @@ Post the structured review report as a comment on the Pull Request:
 ## 🔍 Code Review Report
 
 ### 1. Summary
-*Brief summary of changes and overall evaluation (Approved / Changes Requested).*
+*Brief summary of review verdict (Approved / Changes Requested).*
 
-### 2. Architectural & Quality Checks
-- [x] Architecture & modularity verified
-- [x] Shared contracts & typed interfaces intact
-- [x] Logging & security conventions respected
+### 2. Core Audit Findings
+- **Feature Fidelity**: [x] Full coverage of PM acceptance criteria (no omissions/creep)
+- **Code Quality**: [x] Clean architecture, robust typing, no leaks
+- **DRY & Anti-Duplication**: [x] Zero redundant logic or duplicate DTOs
+- **AGENTS.md Evolution**: [x] Incorporated proposed conventions into AGENTS.md
+- **PR Checks**: [x] All automated CI checks green
 
-### 3. Automated Verification Results
-- **Linter**: Passed
-- **Tests**: Passed
-- **Build**: Passed
+### 3. Findings & Required Changes (If Changes Requested)
+#### 🔴 Critical / Blocker
+- Description of defect, duplicate code, or missing requirement.
 
-### 4. Findings & Feedback
-#### 🔴 Critical / Blocker (if any)
-- Description of issue and required fix.
+#### 🟡 Suggestions & Polish
+- Non-blocking improvement.
 
-#### 🟡 Suggestions & Improvements (if any)
-- Non-blocking suggestion.
-
-### 5. Verdict
+### 4. Verdict
 **[APPROVED]** / **[CHANGES REQUESTED]**
 ```
 

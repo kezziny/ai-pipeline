@@ -15,30 +15,32 @@ flowchart TD
     PM -->|"Scope defined<br/>Status: Senior Dev<br/>Attention: Standard"| SeniorDev["3. Senior Developer<br/>(role-senior-developer)"]
     PM -->|"Unclear requirements<br/>Attention: Needs Decision"| HumanPM["Human Clarification"]
     HumanPM -->|"Answered<br/>Attention: Standard"| PM
-
+    
     SeniorDev -->|"Tech plan prepared<br/>Status: Architect<br/>Attention: Standard"| Architect["4. Software Architect<br/>(role-architect)"]
     SeniorDev -->|"Trade-offs needed<br/>Attention: Needs Decision"| HumanDev["Human Decision"]
     HumanDev -->|"Decided<br/>Attention: Standard"| SeniorDev
     SeniorDev -->|"Ambiguous requirements<br/>Status: PM"| PM
 
-    Architect -->|"Plan approved<br/>Status: Implementer<br/>Attention: Standard"| Implementer["5. Software Implementer<br/>(role-implementer)"]
+    Architect -->|"Plan approved<br/>Status: Ready<br/>Attention: Standard"| Ready["5. Ready<br/>(Implementation Backlog)"]
     Architect -->|"Plan revisions needed<br/>Status: Senior Dev<br/>Attention: Standard"| SeniorDev
     Architect -->|"Architectural deadlock / policy exception<br/>Attention: Needs Decision"| HumanArch["Human Decision"]
     HumanArch -->|"Resolved<br/>Attention: Standard"| Architect
 
-    Implementer -->|"Code ready & gates pass<br/>PR opened<br/>Status: Code Review<br/>Attention: Standard"| AICodeReview["6a. AI Code Reviewer<br/>(role-code-reviewer)"]
+    Ready -->|"Human triggers / Worker polls<br/>Status: Implementer"| Implementer["6. Software Implementer<br/>(role-implementer)"]
+
+    Implementer -->|"Code ready, PR checks green<br/>PR opened<br/>Status: Code Review<br/>Attention: Standard"| AICodeReview["7a. AI Code Reviewer<br/>(role-code-reviewer)"]
     Implementer -->|"Insurmountable blocker / missing secrets<br/>Attention: Needs Decision"| HumanImp["Human Decision"]
     HumanImp -->|"Unblocked<br/>Attention: Standard"| Implementer
     Implementer -->|"Plan defective / unviable<br/>Status: Senior Dev"| SeniorDev
 
-    AICodeReview -->|"Review comments / fixes needed<br/>Status: Implementer<br/>Attention: Standard"| Implementer
-    AICodeReview -->|"AI review passed<br/>Status: Code Review<br/>Attention: Needs Decision"| HumanReview["6b. Human Reviewer<br/>(Mandatory Sign-Off)"]
+    AICodeReview -->|"Review comments / PR checks red<br/>Status: Implementer<br/>Attention: Standard"| Implementer
+    AICodeReview -->|"AI review passed<br/>Status: Code Review<br/>Attention: Needs Decision"| HumanReview["7b. Human Reviewer<br/>(Mandatory Sign-Off)"]
 
     HumanReview -->|"Changes requested<br/>Status: Implementer<br/>Attention: Standard"| Implementer
-    HumanReview -->|"Approved<br/>Status: QA<br/>Attention: Standard"| QA["7. QA Engineer<br/>(role-qa-engineer)"]
+    HumanReview -->|"Approved<br/>Status: QA<br/>Attention: Standard"| QA["8. QA Engineer<br/>(role-qa-engineer)"]
 
-    QA -->|"Playwright E2E & UX verified<br/>Rebase-merges PR<br/>Status: Done"| Done["8. Done<br/>(Merged & Closed)"]
-    QA -->|"Code defect<br/>Status: Implementer<br/>Attention: Standard"| Implementer
+    QA -->|"Coverage audit & Playwright UX passed<br/>Rebase-merges PR<br/>Status: Done"| Done["9. Done<br/>(Merged & Closed)"]
+    QA -->|"PR checks red / Code defect<br/>Status: Implementer<br/>Attention: Standard"| Implementer
     QA -->|"Architecture defect<br/>Status: Senior Dev<br/>Attention: Standard"| SeniorDev
     QA -->|"Requirement defect<br/>Status: PM<br/>Attention: Needs Decision"| PM
 ```
@@ -79,6 +81,7 @@ flowchart TD
    - `PM`
    - `Senior Dev`
    - `Architect`
+   - `Ready` *(Implementation backlog / manual gate)*
    - `Implementer`
    - `Code Review`
    - `QA`
@@ -113,11 +116,12 @@ The GitHub Project board column names represent workflow stages, while agent ski
 | :--- | :--- | :--- | :--- |
 | `Backlog` | Human Triage / Product Owner | — | Intake, priority ranking, assignment to `PM` |
 | `PM` | `role-product-manager` | `.agents/skills/role-product-manager/SKILL.md` | Functional requirements, UX states, scope boundaries |
-| `Senior Dev` | `role-senior-developer` | `.agents/skills/role-senior-developer/SKILL.md` | Technical implementation plan, reuse analysis, unit test strategy |
+| `Senior Dev` | `role-senior-developer` | `.agents/skills/role-senior-developer/SKILL.md` | Compact technical implementation plan, reuse analysis, unit test strategy |
 | `Architect` | `role-architect` | `.agents/skills/role-architect/SKILL.md` | Architectural gatekeeping (4 pillars), plan approval or revisions |
-| `Implementer` | `role-implementer` | `.agents/skills/role-implementer/SKILL.md` | Feature implementation in worktree, unit tests, quality gates, draft PR |
-| `Code Review` | `role-code-reviewer` | `.agents/skills/role-code-reviewer/SKILL.md` | Automated PR check, diff audit, changes requested or human sign-off escalation |
-| `QA` | `role-qa-engineer` | `.agents/skills/role-qa-engineer/SKILL.md` | Playwright E2E verification, UX validation, PR rebase-merge to `Done` |
+| `Ready` | Implementation Backlog Buffer | — | Queue of approved tasks waiting for manual trigger or scheduled pickup |
+| `Implementer` | `role-implementer` | `.agents/skills/role-implementer/SKILL.md` | Feature implementation in worktree, unit tests, AGENTS.md update, green PR checks |
+| `Code Review` | `role-code-reviewer` | `.agents/skills/role-code-reviewer/SKILL.md` | PR checks check, diff audit (spec fidelity, craftsmanship, DRY, AGENTS.md), human sign-off escalation |
+| `QA` | `role-qa-engineer` | `.agents/skills/role-qa-engineer/SKILL.md` | PR checks check, test coverage adequacy audit, Playwright live UX validation, PR merge |
 | `Done` | Completed | — | Merged and closed issue |
 
 ---
@@ -131,11 +135,11 @@ Every pipeline role is bounded by explicit autonomous authorities, human escalat
 | Stage & Role Name | Monitored Status & Swimlane | Autonomous Decisions (Empowered Without Human) | Human Escalation Triggers (`Attention: Needs Decision`) | Forward Routing Condition & Action | Backward Routing Condition & Action |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **1. Product Manager**<br/>`role-product-manager` | `Status: "PM"`<br/>`Attention: "Standard"` | • MVP scope boundaries (in-scope vs out-of-scope)<br/>• Functional requirements, UX states (empty, error, loading)<br/>• Proposing new project conventions for `AGENTS.md` | • Irreconcilable ambiguity in user/business intent<br/>• Scope disputes or high-impact product roadmap trade-offs<br/>• QA bounces due to fundamental requirement contradictions | Spec complete & clear:<br/>`tools/project-move.sh <NUM> --status "Senior Dev" --attention "Standard"` | Invalid/out-of-scope issue:<br/>Move to `Backlog` or close with comment |
-| **2. Senior Developer & Tech Lead**<br/>`role-senior-developer` | `Status: "Senior Dev"`<br/>`Attention: "Standard"` | • Internal module design, class/service structures, DTO schemas<br/>• Selection of existing services/utilities for code reuse<br/>• Unit test strategies, mock fixtures, and quality gates<br/>• Resolving Architect revision requests without altering scope | • Need for new external third-party libraries/SDKs<br/>• Breaking API contract changes impacting outside consumers<br/>• Unresolvable technical trade-offs (e.g. storage vs compute, consistency models) | Plan complete & verified:<br/>`tools/project-move.sh <NUM> --status "Architect" --attention "Standard"` | Ambiguous/contradictory requirements:<br/>`tools/project-move.sh <NUM> --status "PM" --attention "Standard"` (or `Needs Decision`) |
-| **3. Software Architect**<br/>`role-architect` | `Status: "Architect"`<br/>`Attention: "Standard"` | • Auditing 4 architectural pillars (Modularity, DTOs, Leaks, Robustness)<br/>• Vetoing duplicate DTOs, circular dependencies, leaky abstractions<br/>• Prescribing concrete alternative design patterns/contracts<br/>• Approving or requesting revisions on implementation plans | • Fundamental architectural disagreement between Tech Lead & Architect<br/>• Core infrastructure, persistence layer, or multi-tenant boundary alterations<br/>• Security policy exceptions (unauthenticated endpoints, RBAC bypass) | Plan approved (all 4 pillars):<br/>`tools/project-move.sh <NUM> --status "Implementer" --attention "Standard"` | Plan flawed or needs revisions:<br/>`tools/project-move.sh <NUM> --status "Senior Dev" --attention "Standard"` |
-| **4. Software Implementer**<br/>`role-implementer` | `Status: "Implementer"`<br/>`Attention: "Standard"` | • Code implementation strictly within approved plan<br/>• Private helper methods, internal algorithms, refactoring<br/>• Authoring unit tests matching plan requirements<br/>• Resolving code review comments and QA code bug reports<br/>• Worktree lifecycle management (`.worktrees/issue-<NUM>`) | • Unresolvable git merge conflicts during master rebase<br/>• Missing secrets, API credentials, or broken baseline CI<br/>• Plan found to be technically unviable without major architectural rework<br/>• Persistent test suite failures in untouched upstream code | Quality gates pass (lint/test/build):<br/>`tools/project-move.sh <NUM> --status "Code Review" --attention "Standard"` | Plan unviable during coding:<br/>`tools/project-move.sh <NUM> --status "Senior Dev" --attention "Standard"` (with detailed blocker) |
-| **5. Code Reviewer**<br/>`role-code-reviewer` | `Status: "Code Review"`<br/>`Attention: "Standard"` | • Verifying implementation against issue Acceptance Criteria<br/>• Executing linters, tests, and builds in `.worktrees/review-pr-<PR_NUM>`<br/>• Submitting change requests for code style, missing tests, or edge cases<br/>• Submitting approving AI review (`gh pr review --approve`) when green | • **Mandatory Human Sign-Off**: Elevating card to top swimlane upon AI review approval<br/>• Potential security vulnerabilities, credential leaks, or untrusted dependencies<br/>• Significant architectural regressions or scope creep | AI Review Passed:<br/>`tools/project-move.sh <NUM> --status "Code Review" --attention "Needs Decision"` | Changes requested:<br/>`tools/project-move.sh <NUM> --status "Implementer" --attention "Standard"` |
-| **6. QA Engineer**<br/>`role-qa-engineer` | `Status: "QA"`<br/>`Attention: "Standard"` | • Authoring and executing Playwright E2E suites<br/>• Verifying live UX flows against PM Acceptance Criteria<br/>• Final merge authority (`gh pr merge --rebase --delete-branch`) on pass<br/>• Categorizing defect root causes (Code, Architecture, Requirement) | • Flaky E2E test failures caused by external environment/network drops<br/>• Subjective UX discrepancy where code matches spec but user journey is degraded<br/>• Merge conflicts arising during final PR rebase-merge | QA verified & PR merged:<br/>`tools/project-move.sh <NUM> --status "Done" --attention "Standard"` | • Code bug: `--status "Implementer" --attention "Standard"`<br/>• Arch bug: `--status "Senior Dev" --attention "Standard"`<br/>• Req bug: `--status "PM" --attention "Needs Decision"` |
+| **2. Senior Developer & Tech Lead**<br/>`role-senior-developer` | `Status: "Senior Dev"`<br/>`Attention: "Standard"` | • Compact implementation plan (executive decisions + collapsible details)<br/>• Selection of existing services/utilities for code reuse<br/>• Unit test strategies, mock fixtures, and quality gates<br/>• Resolving Architect revision requests without altering scope | • Need for new external third-party libraries/SDKs<br/>• Breaking API contract changes impacting outside consumers<br/>• Unresolvable technical trade-offs (e.g. storage vs compute, consistency models) | Plan complete & verified:<br/>`tools/project-move.sh <NUM> --status "Architect" --attention "Standard"` | Ambiguous/contradictory requirements:<br/>`tools/project-move.sh <NUM> --status "PM" --attention "Standard"` (or `Needs Decision`) |
+| **3. Software Architect**<br/>`role-architect` | `Status: "Architect"`<br/>`Attention: "Standard"` | • Auditing 4 architectural pillars (Modularity, DTOs, Leaks, Robustness)<br/>• Vetoing duplicate DTOs, circular dependencies, leaky abstractions<br/>• Prescribing concrete alternative design patterns/contracts<br/>• Approving or requesting revisions on implementation plans | • Fundamental architectural disagreement between Tech Lead & Architect<br/>• Core infrastructure, persistence layer, or multi-tenant boundary alterations<br/>• Security policy exceptions (unauthenticated endpoints, RBAC bypass) | Plan approved (all 4 pillars):<br/>`tools/project-move.sh <NUM> --status "Ready" --attention "Standard"` | Plan flawed or needs revisions:<br/>`tools/project-move.sh <NUM> --status "Senior Dev" --attention "Standard"` |
+| **4. Software Implementer**<br/>`role-implementer` | `Status: "Implementer"`<br/>`Attention: "Standard"` | • Code implementation strictly within approved plan<br/>• Private helper methods, internal algorithms, refactoring<br/>• Applying PM's proposed AGENTS.md conventions in PR diff<br/>• Authoring unit tests matching plan requirements<br/>• Resolving code review comments and QA code bug reports<br/>• Worktree lifecycle management (`.worktrees/issue-<NUM>`) | • Unresolvable git merge conflicts during master rebase<br/>• Missing secrets, API credentials, or broken baseline CI<br/>• Plan found to be technically unviable without major architectural rework<br/>• Persistent test suite failures in untouched upstream code | Quality gates pass & PR checks all green:<br/>`tools/project-move.sh <NUM> --status "Code Review" --attention "Standard"` | Plan unviable during coding:<br/>`tools/project-move.sh <NUM> --status "Senior Dev" --attention "Standard"` (with detailed blocker) |
+| **5. Code Reviewer**<br/>`role-code-reviewer` | `Status: "Code Review"`<br/>`Attention: "Standard"` | • Remote PR checks gate (`gh pr checks <PR_NUM>`); reject immediately if red<br/>• Verifying spec fidelity, code craftsmanship, and anti-duplication (DRY)<br/>• Validating AGENTS.md additions in PR diff<br/>• Submitting change requests for code style, missing tests, or edge cases<br/>• Submitting approving AI review (`gh pr review --approve`) when green | • **Mandatory Human Sign-Off**: Elevating card to top swimlane upon AI review approval<br/>• Potential security vulnerabilities, credential leaks, or untrusted dependencies<br/>• Significant architectural regressions or scope creep | AI Review Passed:<br/>`tools/project-move.sh <NUM> --status "Code Review" --attention "Needs Decision"` | PR checks failing or changes requested:<br/>`tools/project-move.sh <NUM> --status "Implementer" --attention "Standard"` |
+| **6. QA Engineer**<br/>`role-qa-engineer` | `Status: "QA"`<br/>`Attention: "Standard"` | • Remote PR checks gate (`gh pr checks <PR_NUM>`); reject immediately if red<br/>• Auditing test coverage adequacy against PM requirements<br/>• Interactive Playwright live UX exploration (feel, flows, regressions)<br/>• Final merge authority (`gh pr merge --rebase --delete-branch`) on pass<br/>• Categorizing defect root causes (Code, Architecture, Requirement) | • Flaky E2E test failures caused by external environment/network drops<br/>• Subjective UX discrepancy where code matches spec but user journey is degraded<br/>• Merge conflicts arising during final PR rebase-merge | QA verified & PR merged:<br/>`tools/project-move.sh <NUM> --status "Done" --attention "Standard"` | • PR checks red / Code bug: `--status "Implementer" --attention "Standard"`<br/>• Arch bug: `--status "Senior Dev" --attention "Standard"`<br/>• Req bug: `--status "PM" --attention "Needs Decision"` |
 
 ---
 
@@ -244,7 +248,7 @@ You must run in a continuous autonomous loop:
 ### Role 3: Software Architect (`role-architect`)
 
 - **Monitored Status**: `Architect` (`Attention: Standard`)
-- **Output Status**: `Implementer` (Approved) or `Senior Dev` (Revisions needed)
+- **Output Status**: `Ready` (Approved) or `Senior Dev` (Revisions needed)
 - **Skill**: [`.agents/skills/role-architect/SKILL.md`](.agents/skills/role-architect/SKILL.md)
 
 #### Continuous Loop Starter Prompt:
@@ -263,7 +267,7 @@ You must run in a continuous autonomous loop:
    - If revisions or blockers are identified:
      Post structured feedback and return to Senior Dev: `./tools/project-move.sh <ISSUE_NUM> --status "Senior Dev" --attention "Standard"`.
    - If plan is fully approved across all 4 pillars:
-     Post approval comment and handoff to Implementer: `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
+     Post approval comment and handoff to Ready backlog: `./tools/project-move.sh <ISSUE_NUM> --status "Ready" --attention "Standard"`.
 6. Once complete, immediately start `./tools/poll-project.sh --status "Architect" --attention "Standard"` again to wait for the next issue.
 ```
 
@@ -285,12 +289,12 @@ You must run in a continuous autonomous loop:
 1. Run `./tools/poll-project.sh --status "Implementer" --attention "Standard"` as a background task.
 2. When an issue is detected, inspect PR review comments or QA defect traces if returning from review/QA.
 3. Mount the dedicated worktree in `.worktrees/issue-<ISSUE_NUM>` on branch `feature/<ISSUE_NUM>-<short-slug>` (or `feat/<ISSUE_NUM>-<short-slug>`).
-4. Implement code strictly following the approved Implementation Plan and project conventions (`AGENTS.md`). Address all review/QA comments.
+4. Implement code strictly following the approved Implementation Plan and project conventions (`AGENTS.md`). In addition, apply PM's `Proposed AGENTS.md Additions` directly to `AGENTS.md` in your branch. Address all review/QA comments.
 5. Execute local quality gates inside worktree: rebase on master, run linters, unit test suites, and production build.
-6. Push verified commits, clean up worktree, and manage routing:
+6. Push verified commits, watch remote PR checks (`gh pr checks <PR_NUM> --watch`), clean up worktree, and manage routing:
    - If insurmountable merge conflicts, missing credentials, or unviable technical plans arise:
      Post blocker details and escalate: `./tools/project-move.sh <ISSUE_NUM> --attention "Needs Decision"`.
-   - If quality gates pass cleanly:
+   - If quality gates pass cleanly and PR checks are all green:
      Undraft PR if needed (`gh pr ready <PR_NUM>`) and handoff to Code Review: `./tools/project-move.sh <ISSUE_NUM> --status "Code Review" --attention "Standard"`.
 7. **Continuous Improvement**: Note friction points or missing guidelines to propose for `AGENTS.md` upon completion.
 8. Once complete, immediately start `./tools/poll-project.sh --status "Implementer" --attention "Standard"` again to wait for the next issue.
@@ -312,11 +316,15 @@ Read and follow instructions in `.agents/skills/role-code-reviewer/SKILL.md`.
 
 You must run in a continuous autonomous loop:
 1. Run `./tools/poll-project.sh --status "Code Review" --attention "Standard"` as a background task.
-2. When an issue is detected, locate its associated PR and mount into `.worktrees/review-pr-<PR_NUM>`.
-3. Perform automated verification (linter, unit tests, build) and audit the git diff against issue Acceptance Criteria and architectural standards.
+2. When an issue is detected, check remote PR status (`gh pr checks <PR_NUM>`). If red, immediately comment failing checks and return to Implementer without running tests locally:
+   `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
+3. If PR checks are green, mount into `.worktrees/review-pr-<PR_NUM>` and audit the diff:
+   - Spec fidelity: Verify implementation covers all PM acceptance criteria.
+   - Code craftsmanship & DRY: Eliminate unnecessary duplication and ensure modular boundaries.
+   - AGENTS.md additions: Validate that proposed repository conventions are captured in `AGENTS.md`.
 4. Clean up the temporary worktree.
 5. **Routing**:
-   - If flaws, broken tests, or regressions are identified:
+   - If flaws or spec discrepancies are identified:
      Submit review requesting changes (`gh pr review <PR_NUM> --request-changes`) and return to Implementer:
      `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
    - If code meets all standards:
@@ -341,19 +349,23 @@ Read and follow instructions in `.agents/skills/role-qa-engineer/SKILL.md`.
 
 You must run in a continuous autonomous loop:
 1. Run `./tools/poll-project.sh --status "QA" --attention "Standard"` as a background task (picks up items approved by Human Reviewer).
-2. When an issue is detected, mount the PR branch into `.worktrees/qa-pr-<PR_NUM>`.
-3. Author or execute automated Playwright E2E suites verifying interactive user flows against PM Acceptance Criteria.
-4. Clean up the temporary worktree.
-5. **Routing**:
-   - If all E2E tests and UX checks pass:
+2. When an issue is detected, check remote PR status (`gh pr checks <PR_NUM>`). If red, immediately reject back to Implementer:
+   `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
+3. Mount the PR branch into `.worktrees/qa-pr-<PR_NUM>`.
+4. Perform QA verification:
+   - Requirement Coverage Audit: Verify test cases adequately cover all PM acceptance criteria and edge cases. Suggest additions if lacking.
+   - Interactive UX & Feel Exploration: Launch app and execute live Playwright flows to evaluate user experience, design consistency, and visual layout.
+5. Clean up the temporary worktree.
+6. **Routing**:
+   - If all coverage audits and UX checks pass:
      Post approving QA report on PR, merge PR (`gh pr merge <PR_NUM> --rebase --delete-branch`), and close issue:
      `./tools/project-move.sh <ISSUE_NUM> --status "Done" --attention "Standard"`.
    - If QA fails, categorize defect and route backward:
-     - Code/Test Bug: `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`
+     - PR checks red / Test coverage missing / Code Bug: `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`
      - Architectural/Performance Flaw: `./tools/project-move.sh <ISSUE_NUM> --status "Senior Dev" --attention "Standard"`
      - Requirement Contradiction / Scope Mismatch: `./tools/project-move.sh <ISSUE_NUM> --status "PM" --attention "Needs Decision"`
-6. **Continuous Improvement**: Propose reusable test utilities or UX acceptance patterns for `AGENTS.md`.
-7. Once complete, immediately start `./tools/poll-project.sh --status "QA" --attention "Standard"` again to wait for the next issue.
+7. **Continuous Improvement**: Propose reusable test utilities or UX acceptance patterns for `AGENTS.md`.
+8. Once complete, immediately start `./tools/poll-project.sh --status "QA" --attention "Standard"` again to wait for the next issue.
 ```
 
 ---

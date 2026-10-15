@@ -141,66 +141,65 @@ flowchart TD
 ---
 
 ## Implementation Plan Template
-Append this markdown block to the existing issue description:
+
+Append this compact, decision-focused markdown block to the existing issue description:
 
 ```markdown
 ---
 
 ## Implementation Plan
 
-### 1. Scope & Target Branch
-- **Git Branch**: `feature/<issue-number>-<short-slug>`
-- **Files Modified / Created**:
-  | Action | File Path | Purpose |
-  | :--- | :--- | :--- |
-  | Create | `shared/dtos/example.dto.ts` | Request/response DTO contracts |
-  | Modify | `backend/src/example/example.controller.ts` | Add new endpoint route |
-  | Modify | `backend/src/example/example.service.ts` | Business logic & data handling |
-  | Create | `frontend/src/app/example/example.component.ts` | Standalone UI component |
+### 1. Key Technical Decisions (For Architect Audit)
+- **Decision 1**: Architectural approach, design pattern, and rationale.
+- **Decision 2**: State management, concurrency, or lifecycle strategy.
+- **Decision 3**: Integration boundaries and data flow.
 
-### 2. Code Reuse & Existing Assets
-- **Reused Services / Utilities**: List existing services, helpers, or pipes to inject/reuse.
-- **Shared DTOs**: List existing interfaces from shared packages that will be leveraged.
+### 2. Code Reuse & Integration Strategy
+- **Reused Services / Utilities**: List existing services, helpers, or hooks to inject/reuse.
+- **Shared Contracts**: Reused interfaces from shared packages.
 
-### 3. Shared Contracts & DTOs
+### 3. Contract & API Overview
+- **Endpoints / Signatures**: HTTP methods, route paths, core signatures.
+- **DTO Summary**: High-level shape of incoming and outgoing payloads.
+
+### 4. Regression & Blast Radius Assessment
+- **Affected Consumers**: Existing modules, components, or endpoints touching this data.
+- **Safety / Compatibility**: Default values, safe fallbacks, and regression mitigation.
+
+### 5. Test Strategy & Quality Gates
+- **Unit Test Scenarios**: Specific happy path, edge case, and boundary conditions.
+- **PR Checks**: Must pass all CI checks (lint, test, build) with 0 conflicts before review.
+
+<details>
+<summary>📁 Detailed File Impact & Contract Signatures (Click to expand)</summary>
+
+#### Target Branch
+- `feature/<issue-number>-<short-slug>`
+
+#### File Impact Matrix
+| Action | File Path | Purpose |
+| :--- | :--- | :--- |
+| Create | `shared/dtos/example.dto.ts` | Shared contract schemas |
+| Modify | `backend/src/example/example.controller.ts` | Route handling |
+| Modify | `backend/src/example/example.service.ts` | Business logic |
+| Create | `frontend/src/app/example/example.component.ts` | Client UI component |
+
+#### Shared DTO Definitions
 ```typescript
 export interface CreateExampleDto {
   name: string;
   category: string;
-  count: number;
 }
-
 export interface ExampleResponseDto {
   id: string;
   name: string;
-  category: string;
-  count: number;
-  createdAt: string;
 }
 ```
 
-### 4. Backend / Core Implementation Details
-- Routes and endpoints.
-- Methods, parameters, return types, error handling.
-- Input validation rules.
-
-### 5. Frontend / UI Implementation Details
-- Component declarations, state management, event handlers.
-- UI states: loading, empty list, error feedback.
-
-### 6. Regression & Blast Radius Assessment
-- **Affected Surfaces**: Existing components or endpoints interacting with this data.
-- **Compatibility**: Default values for optional fields, safe fallbacks.
-- **Risk Mitigation**: Verification steps to ensure existing tests remain green.
-
-### 7. Testing Strategy & Mock Fixtures
-- **Unit Tests**:
-  - Test cases (happy path, edge cases, error scenarios).
-- **Mock Data**: Fixtures for testing happy paths and error states.
-- **Quality Gates**:
-  - Code linting (0 errors)
-  - Unit test suite (All tests pass)
-  - Clean production build
+#### Detailed Method Signatures
+- `ExampleService.create(dto: CreateExampleDto): Promise<ExampleResponseDto>`
+- `ExampleComponent.handleCreate(dto: CreateExampleDto): void`
+</details>
 ```
 
 ---

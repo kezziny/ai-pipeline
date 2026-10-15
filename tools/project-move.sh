@@ -201,6 +201,7 @@ STATUS_ALIASES = {
     "qa-engineer": "qa",
     "qa engineer": "qa",
     "qa": "qa",
+    "ready": "ready",
     "done": "done",
     "backlog": "backlog",
 }

@@ -87,6 +87,7 @@ STATUS_ALIASES = {
     "role-code-reviewer": "code review", "code-reviewer": "code review", "code reviewer": "code review",
     "code-review": "code review", "code review": "code review",
     "role-qa-engineer": "qa", "qa-engineer": "qa", "qa engineer": "qa", "qa": "qa",
+    "ready": "ready",
     "done": "done", "backlog": "backlog"
 }
 
@@ -95,7 +96,7 @@ ATTENTION_ALIASES = {
     "needs-decision": "needs decision", "needs_decision": "needs decision", "decision": "needs decision"
 }
 
-board_columns = ["Backlog", "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA", "Done"]
+board_columns = ["Backlog", "PM", "Senior Dev", "Architect", "Ready", "Implementer", "Code Review", "QA", "Done"]
 board_attentions = ["Standard", "Needs Decision"]
 
 cases = [
@@ -109,6 +110,7 @@ cases = [
     ("role-senior-developer", "Senior Dev"),
     ("senior-dev", "Senior Dev"),
     ("role-architect", "Architect"),
+    ("ready", "Ready"),
     ("role-qa-engineer", "QA"),
     ("qa", "QA"),
     ("done", "Done")

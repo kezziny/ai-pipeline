@@ -38,7 +38,7 @@ description: >-
 ### Forward Transitions
 | Current Status | Prerequisite / Condition | Target Status | Attention | Action |
 | :--- | :--- | :--- | :--- | :--- |
-| `Implementer` | Code complete, rebased onto `origin/master`, all quality gates pass (lint, test, build), PR marked ready | `Code Review` | `Standard` | `tools/project-move.sh <ID> --status "Code Review" --attention "Standard"` |
+| `Implementer` | Code complete, rebased onto `origin/master` (0 conflicts), all CI checks green (`gh pr checks`), `AGENTS.md` updated per PM spec, PR marked ready | `Code Review` | `Standard` | `tools/project-move.sh <ID> --status "Code Review" --attention "Standard"` |
 
 ### Backward Transitions & Defect Routing
 | Problem Condition | Target Status | Attention | Action |
@@ -143,6 +143,8 @@ cd "$WORKTREE_DIR"
 - Follow the `Files Modified / Created` table and DTO contracts defined in the issue plan.
 - Implement business logic, services, and user interfaces.
 - Add or update relevant unit test suites.
+- **Incorporate Proposed AGENTS.md Additions**:
+  Check `## 4. Proposed AGENTS.md Additions` in the issue specification. If new conventions, patterns, or UX guidelines are proposed (and not marked `None`), update `AGENTS.md` directly in the feature branch and include the change in your commit.
 
 #### Case B: Addressing Review or QA Feedback
 When the issue was moved back to `Implementer` from `Code Review` or `QA`:
@@ -162,20 +164,33 @@ When the issue was moved back to `Implementer` from `Code Review` or `QA`:
 
 ---
 
-### Step 4: Quality Gate Verification
+### Step 4: Quality Gate Verification & PR Checks Gate
 Inside `$WORKTREE_DIR`, run verification before handover:
 
 1. **Rebase onto latest master**:
+   Ensure zero merge conflicts with `origin/master`:
    ```bash
    git fetch origin master && git rebase origin/master
    ```
-2. **Run Tests & Build**:
-   Execute repository test suites and build commands.
+2. **Local Tests & Build**:
+   Execute repository test suites and build commands locally.
 3. **Push verified code**:
    ```bash
    git push origin "$BRANCH_NAME"
    ```
-4. Return to repository root:
+4. **Mandatory Gate: Wait for Green PR Checks**:
+   Do NOT transition the issue to `Code Review` until all automated CI checks pass on GitHub:
+   ```bash
+   # Watch checks until complete
+   gh pr checks <PR_NUMBER> --watch || true
+   # Verify all checks are passing
+   gh pr checks <PR_NUMBER>
+   ```
+   If any check fails:
+   - Inspect check failure details (`gh pr checks <PR_NUMBER>`).
+   - Fix the defect locally in `$WORKTREE_DIR`.
+   - Commit and push fixes, and re-run check verification.
+5. Return to repository root:
    ```bash
    cd -
    ```

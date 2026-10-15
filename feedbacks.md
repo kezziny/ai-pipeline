@@ -118,12 +118,13 @@ This document aggregates architectural refinements, role enhancements, and workf
 
 | ID | Title | Priority | Status |
 | :--- | :--- | :---: | :---: |
-| **FB-01** | Manual Implementation Gate (`Ready` status between Architect & Implementer) | High | ⏳ Pending |
-| **FB-02** | Implementer Green PR Checks Gate before Code Review | High | ⏳ Pending |
-| **FB-03** | Reviewer & QA CI Offloading (Check status inspection vs local re-runs) | Medium | ⏳ Pending |
-| **FB-04** | Redefined QA Responsibilities (Coverage Audit & Live UX / Look-and-Feel) | High | ⏳ Pending |
-| **FB-05** | Compact Technical Plans with `<details>` Expandable Blocks | Medium | ⏳ Pending |
-| **FB-06** | Code Reviewer Focus: Feature Fidelity, Code Quality & Anti-Duplication | High | ⏳ Pending |
-| **FB-07** | Closed-Loop AGENTS.md Evolution (Implementer Updates, Reviewer Verifies) | High | ⏳ Pending |
+| **FB-01** | Manual Implementation Gate (`Ready` status between Architect & Implementer) | High | ✅ Implemented |
+| **FB-02** | Implementer Green PR Checks Gate before Code Review | High | ✅ Implemented |
+| **FB-03** | Reviewer & QA CI Offloading (Check status inspection vs local re-runs) | Medium | ✅ Implemented |
+| **FB-04** | Redefined QA Responsibilities (Coverage Audit & Live UX / Look-and-Feel) | High | ✅ Implemented |
+| **FB-05** | Compact Technical Plans with `<details>` Expandable Blocks | Medium | ✅ Implemented |
+| **FB-06** | Code Reviewer Focus: Feature Fidelity, Code Quality & Anti-Duplication | High | ✅ Implemented |
+| **FB-07** | Closed-Loop AGENTS.md Evolution (Implementer Updates, Reviewer Verifies) | High | ✅ Implemented |
+
 
 

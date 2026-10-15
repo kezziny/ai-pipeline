@@ -8,6 +8,12 @@ All pipeline roles (`role-product-manager`, `role-senior-developer`, `role-archi
 
 ## 1. Pipeline Context & Trigger Rules
 
+### Pipeline Status Lifecycle
+The canonical GitHub Projects issue lifecycle flows through nine standard columns:
+`Backlog` -> `PM` -> `Senior Dev` -> `Architect` -> `Ready` -> `Implementer` -> `Code Review` -> `QA` -> `Done`
+
+- **Ready Column (Implementation Gate)**: Holds architecturally approved issues ready for implementation. Acts as a manual backlog buffer. Implementer agents pick up tasks when moved from `Ready` or when instructed.
+
 ### Dedicated Pipeline vs. Interactive Pair-Programming
 - **Pipeline Autonomous Operations**: Triggered exclusively through dedicated continuous polling loops or explicit user delegation targeting assigned GitHub Project issues.
 - **Normal Interactive Pair-Programming**: When collaborating interactively with human developers on ad-hoc questions, debugging, or manual edits, pipeline roles (especially `role-implementer` and `role-code-reviewer`) **must not** unilaterally create git worktrees, execute automated branch checkouts, or mutate GitHub Project board states.
@@ -90,7 +96,7 @@ Every technical implementation must satisfy the **Four Architectural Pillars**:
 
 ## 5. Quality Gate Standards (Pre-Review & Pre-Merge)
 
-No PR may be transitioned to `Code Review` or merged to `Done` without passing the three essential local quality gates:
+No PR may be transitioned to `Code Review` or merged to `Done` without passing the essential quality gates:
 
 ### Gate 1: Code Formatting & Linting
 - Linters and formatters must run with 0 errors and 0 warnings.
@@ -101,9 +107,10 @@ No PR may be transitioned to `Code Review` or merged to `Done` without passing t
 - All new functionality and edge cases must be accompanied by behavior-based tests.
 - Tests must be deterministic (no time-sensitive sleeps or external network dependencies).
 
-### Gate 3: Clean Build & Compilation
+### Gate 3: Clean Build, Rebase & PR Checks
 - Clean build execution (`build`, `compile`, or script packaging) must succeed with exit code 0.
-- PR must be rebased cleanly onto latest `origin/master` with no merge conflicts.
+- PR must be rebased cleanly onto latest `origin/master` with 0 merge conflicts.
+- **Remote CI PR Checks**: All automated GitHub PR checks must be passing green (`gh pr checks <pr-num>`). Implementer must watch and confirm all green before moving issue to `Code Review`. Reviewer and QA check remote PR status first and bounce back immediately if red.
 
 ---
 
@@ -114,13 +121,13 @@ No PR may be transitioned to `Code Review` or merged to `Done` without passing t
 1. **Harvesting During Execution**:
    - **Product Manager (`role-product-manager`)**: Identifies reusable domain terms, user journey conventions, or product rules during requirements scoping and appends them to issue specifications under `Proposed AGENTS.md Additions`.
    - **Senior Developer (`role-senior-developer`)**: Captures recurring architectural patterns, code reuse standards, and library choices.
-   - **Implementer (`role-implementer`)**: Notes linter nuances, test mock patterns, and environment quirks encountered during coding.
-   - **Code Reviewer (`role-code-reviewer`)**: Documents recurring anti-patterns, style edge cases, and security review rules.
+   - **Implementer (`role-implementer`)**: Notes linter nuances, test mock patterns, and environment quirks encountered during coding. In addition, Implementer applies PM's `Proposed AGENTS.md Additions` directly to `AGENTS.md` in the feature branch diff.
+   - **Code Reviewer (`role-code-reviewer`)**: Documents recurring anti-patterns, style edge cases, and security review rules. Audits and validates the `AGENTS.md` modifications in the PR diff.
    - **QA Engineer (`role-qa-engineer`)**: Contributes reusable Playwright selectors, UX verification patterns, and environment stability practices.
 
 2. **Synthesis & Integration**:
    - Recurring, non-ephemeral proposals from issue comments and PR descriptions are consolidated by human tech leads or designated maintainers.
-   - Validated conventions are committed to root `AGENTS.md`, immediately becoming authoritative for all subsequent pipeline cycles.
+   - Validated conventions committed to root `AGENTS.md` become immediately authoritative for all subsequent pipeline cycles.
 
 3. **Role Skill Refinements**:
    - When friction or ambiguities arise within specific role workflows, agents document concrete feedback in issue comments.

@@ -12,12 +12,13 @@ Backlog (Human Triage)
   └──> PM (role-product-manager)
         └──> Senior Dev (role-senior-developer)
               └──> Architect (role-architect)
-                    └──> Implementer (role-implementer)
-                          └──> Code Review (role-code-reviewer -> Top Swimlane Human Sign-off)
-                                └──> QA (role-qa-engineer -> Playwright E2E & Merge)
-                                      └──> Done
+                    └──> Ready (Implementation Backlog Buffer)
+                          └──> Implementer (role-implementer)
+                                └──> Code Review (role-code-reviewer -> Top Swimlane Human Sign-off)
+                                      └──> QA (role-qa-engineer -> Playwright UX & Merge)
+                                            └──> Done
 ```
-- **Columns (`Status`)**: `Backlog`, `PM`, `Senior Dev`, `Architect`, `Implementer`, `Code Review`, `QA`, `Done`.
+- **Columns (`Status`)**: `Backlog`, `PM`, `Senior Dev`, `Architect`, `Ready`, `Implementer`, `Code Review`, `QA`, `Done`.
 - **Swimlanes (`Attention`)**: `Needs Decision` (Top swimlane for human blockers/reviews) vs `Standard` (Autonomous).
 - **Reactive Polling & Rate-Limit Protection**: Background workers sleep inside `tools/poll-project.sh` (default interval: 30s). All concurrent subagents share a local cache (`/tmp/gh-project-cache-<owner>-<num>.json` with 25s TTL and file-locking), collapsing 6 agent queries into 1 single API call per cycle and auto-sleeping if GraphQL quota drops below 200 points. State transitions via `tools/project-move.sh` automatically invalidate the cache for instant detection.
 
@@ -71,6 +72,7 @@ gh auth refresh -s project
    - `PM`
    - `Senior Dev`
    - `Architect`
+   - `Ready` *(Implementation backlog / manual gate)*
    - `Implementer`
    - `Code Review`
    - `QA`
@@ -141,25 +143,25 @@ Call the `invoke_subagent` tool with the following payload:
       "TypeName": "self",
       "Role": "Software Architect Worker",
       "Model": "pro",
-      "Prompt": "You are operating as the autonomous Software Architect (role-architect). Read and follow instructions in .agents/skills/role-architect/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Architect\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, audit the implementation plan against the 4 pillars (Modularity, Data Models & DTOs, Resource Management, Security & Robustness).\n3. If revisions are required, post structured feedback comment and return: `./tools/project-move.sh <NUM> --status \"Senior Dev\" --attention \"Standard\"`.\n4. If fundamental architectural conflict exists, comment and run `./tools/project-move.sh <NUM> --attention \"Needs Decision\"`.\n5. If plan satisfies all gates, post approval comment and hand off: `./tools/project-move.sh <NUM> --status \"Implementer\" --attention \"Standard\"`.\n6. Immediately restart loop at Step 1."
+      "Prompt": "You are operating as the autonomous Software Architect (role-architect). Read and follow instructions in .agents/skills/role-architect/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Architect\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, audit the implementation plan against the 4 pillars (Modularity, Data Models & DTOs, Resource Management, Security & Robustness).\n3. If revisions are required, post structured feedback comment and return: `./tools/project-move.sh <NUM> --status \"Senior Dev\" --attention \"Standard\"`.\n4. If fundamental architectural conflict exists, comment and run `./tools/project-move.sh <NUM> --attention \"Needs Decision\"`.\n5. If plan satisfies all gates, post approval comment and hand off to Ready backlog: `./tools/project-move.sh <NUM> --status \"Ready\" --attention \"Standard\"`.\n6. Immediately restart loop at Step 1."
     },
     {
       "TypeName": "self",
       "Role": "Implementer Worker",
       "Model": "pro",
-      "Prompt": "You are operating as the autonomous Issue Implementer (role-implementer). Read and follow instructions in .agents/skills/role-implementer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Implementer\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, check if branch/PR already exists (`gh pr list --search \"<NUM>\"`). Inspect any existing review or QA comments.\n3. Create or checkout isolated worktree in `.worktrees/issue-<NUM>` on branch `feature/<NUM>-<slug>`.\n4. Implement code and unit tests adhering strictly to the issue plan and AGENTS.md. Address all review/QA comments.\n5. Run local quality gates (linting, tests, build) inside the worktree.\n6. Push commits, ensure PR is open (`gh pr ready <PR_NUM>`), remove temporary worktree, and advance status: `./tools/project-move.sh <NUM> --status \"Code Review\" --attention \"Standard\"`.\n7. Immediately restart loop at Step 1."
+      "Prompt": "You are operating as the autonomous Issue Implementer (role-implementer). Read and follow instructions in .agents/skills/role-implementer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Implementer\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, check if branch/PR already exists (`gh pr list --search \"<NUM>\"`). Inspect any existing review or QA comments.\n3. Create or checkout isolated worktree in `.worktrees/issue-<NUM>` on branch `feature/<NUM>-<slug>`.\n4. Implement code and unit tests adhering strictly to the issue plan and AGENTS.md. Apply PM's proposed AGENTS.md conventions in your branch diff. Address all review/QA comments.\n5. Run local quality gates (linting, tests, build) inside the worktree.\n6. Push commits, watch remote PR checks (`gh pr checks <PR_NUM> --watch`), ensure PR is open (`gh pr ready <PR_NUM>`), remove temporary worktree, and advance status: `./tools/project-move.sh <NUM> --status \"Code Review\" --attention \"Standard\"`.\n7. Immediately restart loop at Step 1."
     },
     {
       "TypeName": "self",
       "Role": "Code Reviewer Worker",
       "Model": "pro",
-      "Prompt": "You are operating as the autonomous AI Code Reviewer (role-code-reviewer). Read and follow instructions in .agents/skills/role-code-reviewer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Code Review\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, find its associated Pull Request.\n3. Mount PR in isolated worktree `.worktrees/review-pr-<PR_NUM>` and run verification checks (lint, tests, build, diff review).\n4. If fixes needed, post review comments on PR and return to Implementer: `./tools/project-move.sh <NUM> --status \"Implementer\" --attention \"Standard\"`.\n5. If code passes all standards, submit approving review (`gh pr review --approve`), undraft PR (`gh pr ready`), cleanup worktree, and elevate to top swimlane for human sign-off: `./tools/project-move.sh <NUM> --status \"Code Review\" --attention \"Needs Decision\"`.\n6. Immediately restart loop at Step 1."
+      "Prompt": "You are operating as the autonomous AI Code Reviewer (role-code-reviewer). Read and follow instructions in .agents/skills/role-code-reviewer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Code Review\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, check remote PR checks (`gh pr checks <PR_NUM>`). If red, immediately comment failing checks and return to Implementer: `./tools/project-move.sh <NUM> --status \"Implementer\" --attention \"Standard\"`.\n3. If PR checks are green, mount into `.worktrees/review-pr-<PR_NUM>` and audit the diff (spec fidelity to PM acceptance criteria, code craftsmanship, DRY anti-duplication, AGENTS.md additions).\n4. If fixes needed, post review comments on PR and return to Implementer: `./tools/project-move.sh <NUM> --status \"Implementer\" --attention \"Standard\"`.\n5. If code passes all standards, submit approving review (`gh pr review --approve`), undraft PR (`gh pr ready`), cleanup worktree, and elevate to top swimlane for human sign-off: `./tools/project-move.sh <NUM> --status \"Code Review\" --attention \"Needs Decision\"`.\n6. Immediately restart loop at Step 1."
     },
     {
       "TypeName": "self",
       "Role": "QA Engineer Worker",
       "Model": "pro",
-      "Prompt": "You are operating as the autonomous Lead QA Engineer (role-qa-engineer). Read and follow instructions in .agents/skills/role-qa-engineer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"QA\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches (signaling human review approval), mount PR in isolated worktree `.worktrees/qa-pr-<PR_NUM>`.\n3. Run or write automated Playwright E2E suites verifying live UX against the PM acceptance criteria.\n4. If QA passes: post QA report, merge PR (`gh pr merge <PR_NUM> --rebase --delete-branch`), and move to Done: `./tools/project-move.sh <NUM> --status \"Done\" --attention \"Standard\"`.\n5. If QA fails: post traces/logs on PR, and route back based on defect cause (`Implementer`, `Senior Dev`, or `PM`).\n6. Clean up worktree and immediately restart loop at Step 1."
+      "Prompt": "You are operating as the autonomous Lead QA Engineer (role-qa-engineer). Read and follow instructions in .agents/skills/role-qa-engineer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"QA\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches (signaling human review approval), check remote PR checks (`gh pr checks <PR_NUM>`). If red, immediately reject back to Implementer: `./tools/project-move.sh <NUM> --status \"Implementer\" --attention \"Standard\"`.\n3. Mount PR in isolated worktree `.worktrees/qa-pr-<PR_NUM>`.\n4. Audit test coverage adequacy against PM acceptance criteria, and conduct live interactive Playwright UX testing.\n5. If QA passes: post QA report, merge PR (`gh pr merge <PR_NUM> --rebase --delete-branch`), and move to Done: `./tools/project-move.sh <NUM> --status \"Done\" --attention \"Standard\"`.\n6. If QA fails: post traces/logs on PR, and route back based on defect cause (`Implementer`, `Senior Dev`, or `PM`).\n7. Clean up worktree and immediately restart loop at Step 1."
     }
   ]
 }
@@ -174,10 +176,11 @@ To inspect active worker subagents and check their state:
 - Use `manage_subagents` with `Action: "list"`.
 - Each subagent will show either `running` (waiting on `poll-project.sh` or executing a task) or `waiting_for_message`.
 
-### 5.2 Triggering Work
+### 5.2 Triggering Work & Managing the Backlog
 1. Human opens a GitHub Issue -> GitHub Project auto-adds it to **`Backlog`**.
 2. When ready, Human drags the issue card from **`Backlog`** to **`PM`** (with `Attention: Standard`).
-3. The `Product Manager Worker` wakes up automatically, clarifies requirements, and hands off down the pipeline.
+3. The `Product Manager Worker` wakes up automatically, clarifies requirements, and hands off to `Senior Dev` -> `Architect` -> **`Ready`**.
+4. The **`Ready`** column holds implementation-ready tasks as a buffer. When ready to implement, human (or automated dispatch) moves card to **`Implementer`** to initiate coding.
 
 ### 5.3 Responding to Human Intervention
 1. When an agent requires clarification or human review sign-off, the card moves to **`Attention: Needs Decision`** (top swimlane).

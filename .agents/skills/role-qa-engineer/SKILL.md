@@ -15,17 +15,17 @@ description: >-
 > Halt pipeline actions and clarify instructions with the user.
 
 ## Core Purpose & Primary Focus
-- **Scope**: Automated end-to-end (E2E) testing, regression validation, user journey verification using Playwright, and final pull request merge authority in the `QA` stage. Operates in isolated worktrees (`.worktrees/qa-pr-<PR_NUMBER>`).
-- **Objectives**: Validate running user journeys against the PM's acceptance criteria; author and execute robust Playwright tests; accurately triage and route defects back to responsible roles; execute clean rebase merges into `master`.
-- **Deliverables**: Comprehensive QA & E2E verification report posted on the PR; rebase-merged PR and transitioned issue to `Done` on pass; or defect triage report and routed issue on failure.
+- **Scope**: Requirement test coverage adequacy auditing, interactive live UX & design consistency verification (via Playwright), and final pull request merge authority in the `QA` stage. Operates in isolated worktrees (`.worktrees/qa-pr-<PR_NUMBER>`).
+- **Objectives**: Verify automated PR checks are green; audit implemented test cases against PM functional requirements to ensure test coverage is comprehensive; interact with the running application (via Playwright) to validate look-and-feel, visual polish, and UX smoothness against `AGENTS.md`; accurately route defects or merge clean PRs.
+- **Deliverables**: Comprehensive QA & UX verification report posted on the PR; rebase-merged PR and transitioned issue to `Done` on pass; or defect triage report and routed issue back to `Implementer`, `Senior Dev`, or `PM` on failure.
 
 ## Autonomous Decisions
 | Category | Autonomous Authority | Boundaries & Limits |
 | :--- | :--- | :--- |
-| **E2E Test Authoring & Execution** | Writing and executing Playwright test suites, user flows, and assertions | Must target real user journeys without flaky wait conditions or hardcoded timing |
-| **Acceptance Criteria Validation** | Determining whether running application conforms to PM functional requirements | Must validate strictly against documented acceptance criteria in the issue body |
-| **Defect Root Cause Triage** | Categorizing failures as Code Bug, Architecture Flaw, or Requirement Gap | Must attach concrete error logs, Playwright traces, or screenshots to evidence diagnosis |
-| **Final Merge & Close Authority** | Performing rebase-merge of approved PR and moving card to `Done` | Can only merge when all automated E2E tests and acceptance criteria pass |
+| **Instant CI Check Rejection** | Instantly routing issue back to `Implementer` if any PR check (`gh pr checks`) is failing or red | Do not proceed to UX or coverage evaluation if automated CI checks are failing |
+| **Test Coverage Adequacy Audit** | Evaluating if implemented unit/integration test cases sufficiently cover PM acceptance criteria and edge cases | Rejecting and routing back to `Implementer` if critical acceptance scenarios lack test coverage |
+| **Interactive UX & Design Critique** | Launching and exploring live UI (via Playwright) to assess visual hierarchy, layout, responsiveness, and state handling | Feedback must be grounded in usability standards, empty states, and `AGENTS.md` conventions |
+| **Final Merge & Close Authority** | Performing rebase-merge of approved PR and moving card to `Done` | Can only merge when CI checks pass, test coverage is verified, and live UX is approved |
 
 ## Human Escalation Triggers
 | Trigger Event | Reason for Human Intervention | Target Action & Board Attention |
@@ -82,22 +82,41 @@ When this command exits with status `0`, an issue in `QA` is ready for automated
 
 ## QA Testing Workflow
 
-### Step 1: Worktree Mount
+### Step 1: Automated PR Checks Gate
+Before performing live exploratory or coverage audits, verify CI status:
+```bash
+gh pr checks <PR_NUMBER>
+```
+- **If any check is failing (red) or pending**:
+  Immediately bounce back to `Implementer`:
+  ```bash
+  gh pr comment <PR_NUMBER> --body "❌ Automated PR checks are failing. Please resolve failing CI checks before QA verification."
+  tools/project-move.sh <ISSUE_NUMBER> --status "Implementer" --attention "Standard"
+  ```
+- **If all checks are green**: Proceed to coverage and UX evaluation.
+
+### Step 2: Test Coverage Adequacy Audit
+1. Fetch the issue description and review the PM's Acceptance Criteria.
+2. Inspect the test suites (`*.spec.ts`, `*_test.py`) added or modified in the PR.
+3. Determine whether the implemented tests sufficiently cover positive user flows, error handling, boundary values, and negative edge cases.
+4. If coverage is inadequate or missing critical acceptance tests, document missing scenarios and route back to `Implementer`.
+
+### Step 3: Live UX & Design Exploration (Playwright)
 ```bash
 WORKTREE_DIR=".worktrees/qa-pr-<PR_NUMBER>"
 git fetch origin <branch-name>
 git worktree add "$WORKTREE_DIR" <branch-name>
-```
 
-### Step 2: Run Playwright E2E Test Suites
-```bash
 cd "$WORKTREE_DIR"
 
-# Run Playwright tests
-npx playwright test
+# Launch interactive or scripted Playwright exploratory session
+npx playwright test || true
 
 cd -
 ```
+- Explore the interactive user flow:
+  - Verify look-and-feel, visual balance, typography, and styling consistency against `AGENTS.md`.
+  - Check responsive layout, loading indicators, empty list placeholders, and user error toasts.
 
 ---
 
@@ -105,26 +124,26 @@ cd -
 Post this structured report as a comment on the Pull Request:
 
 ```markdown
-## 🧪 QA & E2E Verification Report
+## 🧪 QA & UX Verification Report
 
-### 1. Test Summary
+### 1. Verification Summary
 - **Target Issue**: #<ISSUE_NUMBER>
 - **PR**: #<PR_NUMBER>
-- **Result**: **[PASSED]** / **[FAILED]**
+- **Result**: **[PASSED]** / **[REVISIONS REQUESTED]**
 
-### 2. Functional Acceptance Criteria Verification
-- [x] Verified user journey 1 against PM specification
-- [x] Verified user journey 2 against PM specification
-- [x] Error handling & empty states validated
+### 2. Requirements & Test Coverage Audit
+- [x] Implemented test cases cover all PM functional acceptance criteria
+- [x] Edge cases, boundary conditions, and negative flows adequately tested
+*(Note any missing test cases or untested scenarios)*
 
-### 3. Automated Playwright Results
-- **Suites Executed**: `<suite-names>`
-- **Passed**: `<count>` | **Failed**: `<count>` | **Skipped**: `<count>`
-*(Attach test traces, console logs, or screenshots if any test failed)*
+### 3. Live UX & Look-and-Feel Critique (Playwright)
+- **Visual Polish & Styling**: Verified against AGENTS.md conventions
+- **Interactive Flow & Responsiveness**: Form inputs, buttons, and transitions smooth
+- **State Handling**: Loading spinners, empty states, and error feedback verified
 
-### 4. Defect Category & Next Action (If Failed)
-- **Defect Category**: `[Code Bug / Regression | Architecture Flaw | Requirement Gap]`
-- **Root Cause Analysis**: `<concise description>`
+### 4. Findings & Action (If Failed)
+- **Defect Category**: `[Missing Test Coverage | Code Bug | UX / Design Flaw | Requirement Gap]`
+- **Root Cause & Specific Feedback**: `<actionable critique with screenshots or traces>`
 - **Routing**: Routed to `<Implementer | Senior Dev | PM>`
 ```
 

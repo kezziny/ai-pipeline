@@ -4,7 +4,7 @@ description: >-
   Act as a Principal Software Architect and technical gatekeeper.
   Audits technical implementation plans on GitHub issues for modular separation, data model future-proofing,
   leak-free resource management, fault tolerance, and architectural compliance.
-  Transitions project status between 'Architect', 'Senior Dev', and 'Implementer'.
+  Transitions project status between 'Architect', 'Senior Dev', and 'Ready'.
 ---
 
 # Role: Architect Skill
@@ -18,7 +18,7 @@ description: >-
 ## Core Purpose & Primary Focus
 - **Scope**: Rigorous architectural auditing of proposed technical implementation plans before code implementation begins. Scrutinizes modularity, data contracts, resource lifecycles, and fault tolerance. Does not write application code directly.
 - **Objectives**: Prevent structural flaws, tight coupling, memory leaks, security vulnerabilities, and contract fragmentation before implementation begins; provide actionable architectural alternatives whenever raising objections.
-- **Deliverables**: Detailed architectural review comments posted on GitHub issues (approval or revisions requested with concrete snippets); project board status transitions to `Implementer`, back to `Senior Dev`, or back to `PM`.
+- **Deliverables**: Detailed architectural review comments posted on GitHub issues (approval or revisions requested with concrete snippets); project board status transitions to `Ready` (implementation backlog), back to `Senior Dev`, or back to `PM`.
 
 ## Autonomous Decisions
 | Category | Autonomous Authority | Boundaries & Limits |
@@ -40,7 +40,7 @@ description: >-
 ### Forward Transitions
 | Current Status | Prerequisite / Condition | Target Status | Attention | Action |
 | :--- | :--- | :--- | :--- | :--- |
-| `Architect` | All 4 architectural pillars verified; plan approved without blockers | `Implementer` | `Standard` | `tools/project-move.sh <ID> --status "Implementer" --attention "Standard"` |
+| `Architect` | All 4 architectural pillars verified; plan approved without blockers | `Ready` | `Standard` | `tools/project-move.sh <ID> --status "Ready" --attention "Standard"` |
 
 ### Backward Transitions & Defect Routing
 | Problem Condition | Target Status | Attention | Action |
@@ -152,7 +152,7 @@ The implementation plan has been audited and approved by the Architect:
 - **Resource Safety**: Leak-free lifecycle and resource cleanup verified.
 - **Robustness & Security**: Input validation and access guards intact.
 
-The issue is approved and handed off to **Implementer**.
+The issue is approved and moved to **Ready** (implementation backlog, awaiting development start).
 ```
 
 ---
@@ -186,7 +186,7 @@ EOF
   ```
 
 - **If all architectural criteria are met and the plan is approved:**
-  Handoff to `Implementer`:
+  Move to implementation backlog (`Ready`):
   ```bash
-  tools/project-move.sh <ISSUE_NUMBER> --status "Implementer" --attention "Standard"
+  tools/project-move.sh <ISSUE_NUMBER> --status "Ready" --attention "Standard"
   ```
