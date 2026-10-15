@@ -6,18 +6,25 @@ set -euo pipefail
 # Polls a GitHub Projects v2 board until an open item with the specified
 # status and attention values is found.
 # Exits with status 0 upon match so background agent tasks wake up reactively.
+#
+# Rate-Limit Optimizations:
+#   - Shared short-lived local cache (/tmp/gh-project-cache-<owner>-<num>.json)
+#     with file-locking across concurrent subagent workers (TTL: 25s).
+#   - Default interval set to 30s (prevents token exhaustion).
+#   - Rate-limit aware backoff if GraphQL quota drops below critical threshold.
 # -----------------------------------------------------------------------------
 
 usage() {
   cat <<'EOF'
 Usage:
-  tools/poll-project.sh --status "<STATUS>" [--attention "<ATTENTION>"] [--interval 10]
+  tools/poll-project.sh --status "<STATUS>" [--attention "<ATTENTION>"] [--interval 30] [--cache-ttl 25]
   tools/poll-project.sh "<STATUS>" [INTERVAL_SECONDS]
 
 Options:
   -s, --status      Target column/status (e.g. "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA", "Done" or role aliases like "role-implementer")
   -a, --attention   Target attention swimlane (default: "Standard", supports aliases like "needs-decision")
-  -i, --interval    Polling interval in seconds (default: 10)
+  -i, --interval    Polling interval in seconds (default: 30)
+  -c, --cache-ttl   Cache TTL in seconds (default: 25)
   -p, --project     Project number (default from .project-config.json or $GH_PROJECT_NUMBER)
   -o, --owner       Project owner (default from .project-config.json or $GH_PROJECT_OWNER)
   -h, --help        Show this help message
@@ -31,7 +38,8 @@ CONFIG_FILE="${ROOT_DIR}/.project-config.json"
 
 TARGET_STATUS=""
 TARGET_ATTENTION="Standard"
-POLL_INTERVAL=10
+POLL_INTERVAL=30
+CACHE_TTL=25
 PROJECT_NUMBER=""
 PROJECT_OWNER=""
 STATUS_FIELD="Status"
@@ -54,6 +62,8 @@ PROJECT_OWNER="${GH_PROJECT_OWNER:-$PROJECT_OWNER}"
 PROJECT_NUMBER="${GH_PROJECT_NUMBER:-$PROJECT_NUMBER}"
 STATUS_FIELD="${GH_PROJECT_STATUS_FIELD:-$STATUS_FIELD}"
 ATTENTION_FIELD="${GH_PROJECT_ATTENTION_FIELD:-$ATTENTION_FIELD}"
+POLL_INTERVAL="${GH_PROJECT_POLL_INTERVAL:-$POLL_INTERVAL}"
+CACHE_TTL="${GH_PROJECT_CACHE_TTL:-$CACHE_TTL}"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -71,6 +81,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -i|--interval)
       POLL_INTERVAL="$2"
+      shift 2
+      ;;
+    -c|--cache-ttl)
+      CACHE_TTL="$2"
       shift 2
       ;;
     -p|--project)
@@ -112,29 +126,90 @@ fi
 
 trap 'echo ""; echo "[poll-project] Polling aborted."; exit 130' INT TERM
 
-echo "[poll-project] Watching Project #${PROJECT_NUMBER} (${PROJECT_OWNER}) for items with Status='${TARGET_STATUS}' and Attention='${TARGET_ATTENTION}' (interval: ${POLL_INTERVAL}s)..."
+echo "[poll-project] Watching Project #${PROJECT_NUMBER} (${PROJECT_OWNER}) for items with Status='${TARGET_STATUS}' and Attention='${TARGET_ATTENTION}' (interval: ${POLL_INTERVAL}s, cache TTL: ${CACHE_TTL}s)..."
 
 while true; do
   FOUND=$(
     python3 - <<PYEOF
-import subprocess, json, sys
+import subprocess, json, sys, os, time, fcntl
 
-cmd = [
-    "${GH_CMD}", "project", "item-list", "${PROJECT_NUMBER}",
-    "--owner", "${PROJECT_OWNER}",
-    "--format", "json"
-]
-
-try:
-    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    data = json.loads(res.stdout)
-except Exception:
-    sys.exit(0)
-
+gh_cmd = "${GH_CMD}"
+owner = "${PROJECT_OWNER}"
+p_num = "${PROJECT_NUMBER}"
 target_status = "${TARGET_STATUS}".strip().lower()
 target_attention = "${TARGET_ATTENTION}".strip().lower()
 status_field = "${STATUS_FIELD}".strip().lower()
 attention_field = "${ATTENTION_FIELD}".strip().lower()
+cache_ttl = int("${CACHE_TTL}")
+
+cache_file = f"/tmp/gh-project-cache-{owner}-{p_num}.json"
+lock_file = f"/tmp/gh-project-cache-{owner}-{p_num}.lock"
+
+def check_rate_limit():
+    try:
+        res = subprocess.run([gh_cmd, "api", "rate_limit"], capture_output=True, text=True)
+        if res.returncode == 0:
+            rl_data = json.loads(res.stdout)
+            gql = rl_data.get("resources", {}).get("graphql", {})
+            rem = gql.get("remaining", 5000)
+            reset_ts = gql.get("reset", 0)
+            if rem < 200:
+                wait_sec = max(5, int(reset_ts - time.time()) + 1)
+                sys.stderr.write(f"\n[poll-project] WARNING: Rate limit low (remaining: {rem}). Sleeping {wait_sec}s until reset...\n")
+                time.sleep(wait_sec)
+    except Exception:
+        pass
+
+def fetch_project_items():
+    # 1. Check if cache is fresh
+    if os.path.exists(cache_file):
+        try:
+            mtime = os.path.getmtime(cache_file)
+            if (time.time() - mtime) < cache_ttl:
+                with open(cache_file, "r") as f:
+                    return json.load(f)
+        except Exception:
+            pass
+
+    # 2. Acquire lock to refresh cache
+    with open(lock_file, "w") as lf:
+        try:
+            fcntl.flock(lf, fcntl.LOCK_EX)
+            # Re-check cache freshness after lock acquisition
+            if os.path.exists(cache_file):
+                try:
+                    mtime = os.path.getmtime(cache_file)
+                    if (time.time() - mtime) < cache_ttl:
+                        with open(cache_file, "r") as f:
+                            return json.load(f)
+                except Exception:
+                    pass
+
+            cmd = [
+                gh_cmd, "project", "item-list", p_num,
+                "--owner", owner,
+                "--format", "json"
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode != 0:
+                if "rate limit" in res.stderr.lower():
+                    check_rate_limit()
+                sys.exit(0)
+
+            data = json.loads(res.stdout)
+            # Write atomically to cache
+            temp_cache = f"{cache_file}.tmp.{os.getpid()}"
+            with open(temp_cache, "w") as f:
+                json.dump(data, f)
+            os.replace(temp_cache, cache_file)
+            return data
+        finally:
+            fcntl.flock(lf, fcntl.LOCK_UN)
+
+try:
+    data = fetch_project_items()
+except Exception:
+    sys.exit(0)
 
 STATUS_ALIASES = {
     "role-product-manager": "pm",

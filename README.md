@@ -61,8 +61,8 @@ flowchart TD
    - Pipeline agents continuously harvest established idioms, edge cases, and architectural guardrails into `AGENTS.md`.
    - Clear trigger guards separate autonomous pipeline operations from interactive pair-programming chats.
 6. **Standardized Helper & Verification Tooling (`tools/`)**:
-   - `tools/poll-project.sh`: Reactive long-polling for assigned project board cards.
-   - `tools/project-move.sh`: Simple CLI helper to transition columns and swimlanes.
+   - `tools/poll-project.sh`: Reactive long-polling for assigned project board cards with 25s shared local caching, file-locking, rate-limit backoff, and 30s default interval (mitigates GitHub GraphQL rate limits across multiple projects).
+   - `tools/project-move.sh`: Simple CLI helper to transition columns and swimlanes with 24h metadata caching and cache invalidation.
    - `tools/verify-roles.sh`: Automated validator for role skill structures, YAML frontmatter, and trigger guards.
 
 ---
@@ -363,10 +363,11 @@ You must run in a continuous autonomous loop:
 The pipeline includes standardized command-line tools under `tools/` to facilitate polling, transitions, and automated verification:
 
 ### `tools/poll-project.sh`
-Long-polling listener that enables autonomous agents to wait for assigned items in their target Status column and Attention swimlane:
+Long-polling listener that enables autonomous agents to wait for assigned items in their target Status column and Attention swimlane.
+Features **shared local caching** (`/tmp/gh-project-cache-<owner>-<num>.json` with 25s TTL and file-locking) so that all 6 concurrent agents share a single GraphQL query, reducing API load by 83%+. Includes automatic backoff if rate limits drop below 200 points:
 ```bash
-# Basic usage
-./tools/poll-project.sh --status "<STATUS>" [--attention "<ATTENTION>"] [--interval 10]
+# Basic usage (default interval: 30s, default cache TTL: 25s)
+./tools/poll-project.sh --status "<STATUS>" [--attention "<ATTENTION>"] [--interval 30] [--cache-ttl 25]
 
 # Examples
 ./tools/poll-project.sh --status "PM" --attention "Standard"
@@ -375,7 +376,8 @@ Long-polling listener that enables autonomous agents to wait for assigned items 
 ```
 
 ### `tools/project-move.sh`
-CLI utility to update an issue's column Status and Attention swimlane on GitHub Projects v2:
+CLI utility to update an issue's column Status and Attention swimlane on GitHub Projects v2.
+Caches static project metadata (`projectId`, `fields`, and options) in `/tmp/gh-project-metadata-<owner>-<num>.json` for 24 hours, and automatically invalidates the items cache upon move so pollers detect changes immediately:
 ```bash
 # Move status column
 ./tools/project-move.sh 42 --status "Senior Dev"

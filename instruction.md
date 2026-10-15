@@ -19,7 +19,7 @@ Backlog (Human Triage)
 ```
 - **Columns (`Status`)**: `Backlog`, `PM`, `Senior Dev`, `Architect`, `Implementer`, `Code Review`, `QA`, `Done`.
 - **Swimlanes (`Attention`)**: `Needs Decision` (Top swimlane for human blockers/reviews) vs `Standard` (Autonomous).
-- **Reactive Polling**: Background workers sleep inside `tools/poll-project.sh` until an item reaches their column, waking up with exit code `0` to process the issue and move it forward via `tools/project-move.sh`.
+- **Reactive Polling & Rate-Limit Protection**: Background workers sleep inside `tools/poll-project.sh` (default interval: 30s). All concurrent subagents share a local cache (`/tmp/gh-project-cache-<owner>-<num>.json` with 25s TTL and file-locking), collapsing 6 agent queries into 1 single API call per cycle and auto-sleeping if GraphQL quota drops below 200 points. State transitions via `tools/project-move.sh` automatically invalidate the cache for instant detection.
 
 ---
 
