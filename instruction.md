@@ -103,7 +103,22 @@ Create `.project-config.json` in the target repository root:
 
 To initiate the autonomous pipeline, the orchestrating AI executes a single `invoke_subagent` call launching all 6 worker subagents concurrently.
 
-### 4.1 Orchestrator Subagent Dispatch (`invoke_subagent`)
+### 4.1 Subagent Model Selection Matrix
+
+When delegating roles via `invoke_subagent`, match each role's cognitive demands to the optimal model tier:
+
+| Role | Recommended Model | Cognitive Profile & Justification | Cost/Speed Alternative |
+| :--- | :---: | :--- | :---: |
+| **`role-product-manager`** | `flash` | **Document structuring & scope triage**: Formulates functional specifications, acceptance criteria, and domain conventions from prompts. `flash` offers fast turnaround and low token usage for structured text work. | `pro` *(if complex user journey analysis)* |
+| **`role-senior-developer`** | `pro` | **Multi-file synthesis & API design**: Deep codebase reconnaissance, cross-module DTO design, method signature contracts, and backward-compatibility analysis require deep reasoning. | `inherit` |
+| **`role-architect`** | `pro` | **Critical gatekeeping & fault analysis**: Scrutinizes design plans against modular decoupling, concurrency, and leak-free resource lifecycle. Requires highest discernment to detect subtle architectural anti-patterns. | `inherit` |
+| **`role-implementer`** | `pro` | **Multi-file code authoring & debugging**: Handles complex TypeScript/Python implementation, git worktree rebase operations, compiler errors, and unit test regressions. `pro` is essential for clean code synthesis. | `inherit` |
+| **`role-code-reviewer`** | `pro` | **Adversarial diff audit & security inspection**: Rigorous pull request diff analysis, catching edge cases, memory leaks, security escapes, and architectural regressions. `flash` risks overlooking subtle bugs. | `inherit` |
+| **`role-qa-engineer`** | `pro` | **E2E test authoring & UX validation**: Authoring robust Playwright selectors and interpreting complex DOM failure traces requires `pro`. | `flash` *(if only executing pre-built test suites)* |
+
+---
+
+### 4.2 Orchestrator Subagent Dispatch (`invoke_subagent`)
 
 Call the `invoke_subagent` tool with the following payload:
 
@@ -113,37 +128,37 @@ Call the `invoke_subagent` tool with the following payload:
     {
       "TypeName": "self",
       "Role": "Product Manager Worker",
-      "Model": "inherit",
+      "Model": "flash",
       "Prompt": "You are operating as the autonomous Product Manager (role-product-manager). Read and follow instructions in .agents/skills/role-product-manager/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"PM\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, inspect the issue description and requirements.\n3. Formulate the functional specification (Summary, Scope, Functional Requirements, Proposed AGENTS.md Additions).\n4. Update the issue body via `gh issue edit <NUM> --body-file -`.\n5. If requirements are ambiguous or decisions needed, comment questions and run `./tools/project-move.sh <NUM> --attention \"Needs Decision\"`.\n6. When requirements are fully defined, hand off to Senior Dev: `./tools/project-move.sh <NUM> --status \"Senior Dev\" --attention \"Standard\"`.\n7. Immediately restart loop at Step 1."
     },
     {
       "TypeName": "self",
       "Role": "Senior Developer Worker",
-      "Model": "inherit",
+      "Model": "pro",
       "Prompt": "You are operating as the autonomous Senior Developer & Tech Lead (role-senior-developer). Read and follow instructions in .agents/skills/role-senior-developer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Senior Dev\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, explore the codebase to maximize existing code reuse (services, DTOs, utilities).\n3. Draft a concrete implementation plan with exact file paths, method signatures, shared contracts, regression blast radius, and unit test strategy.\n4. Append the implementation plan to the GitHub issue body.\n5. If technical trade-offs require human consultation, comment questions and run `./tools/project-move.sh <NUM> --attention \"Needs Decision\"`.\n6. When technical plan is ready, hand off to Architect: `./tools/project-move.sh <NUM> --status \"Architect\" --attention \"Standard\"`.\n7. Immediately restart loop at Step 1."
     },
     {
       "TypeName": "self",
       "Role": "Software Architect Worker",
-      "Model": "inherit",
+      "Model": "pro",
       "Prompt": "You are operating as the autonomous Software Architect (role-architect). Read and follow instructions in .agents/skills/role-architect/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Architect\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, audit the implementation plan against the 4 pillars (Modularity, Data Models & DTOs, Resource Management, Security & Robustness).\n3. If revisions are required, post structured feedback comment and return: `./tools/project-move.sh <NUM> --status \"Senior Dev\" --attention \"Standard\"`.\n4. If fundamental architectural conflict exists, comment and run `./tools/project-move.sh <NUM> --attention \"Needs Decision\"`.\n5. If plan satisfies all gates, post approval comment and hand off: `./tools/project-move.sh <NUM> --status \"Implementer\" --attention \"Standard\"`.\n6. Immediately restart loop at Step 1."
     },
     {
       "TypeName": "self",
       "Role": "Implementer Worker",
-      "Model": "inherit",
+      "Model": "pro",
       "Prompt": "You are operating as the autonomous Issue Implementer (role-implementer). Read and follow instructions in .agents/skills/role-implementer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Implementer\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, check if branch/PR already exists (`gh pr list --search \"<NUM>\"`). Inspect any existing review or QA comments.\n3. Create or checkout isolated worktree in `.worktrees/issue-<NUM>` on branch `feature/<NUM>-<slug>`.\n4. Implement code and unit tests adhering strictly to the issue plan and AGENTS.md. Address all review/QA comments.\n5. Run local quality gates (linting, tests, build) inside the worktree.\n6. Push commits, ensure PR is open (`gh pr ready <PR_NUM>`), remove temporary worktree, and advance status: `./tools/project-move.sh <NUM> --status \"Code Review\" --attention \"Standard\"`.\n7. Immediately restart loop at Step 1."
     },
     {
       "TypeName": "self",
       "Role": "Code Reviewer Worker",
-      "Model": "inherit",
+      "Model": "pro",
       "Prompt": "You are operating as the autonomous AI Code Reviewer (role-code-reviewer). Read and follow instructions in .agents/skills/role-code-reviewer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"Code Review\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches, find its associated Pull Request.\n3. Mount PR in isolated worktree `.worktrees/review-pr-<PR_NUM>` and run verification checks (lint, tests, build, diff review).\n4. If fixes needed, post review comments on PR and return to Implementer: `./tools/project-move.sh <NUM> --status \"Implementer\" --attention \"Standard\"`.\n5. If code passes all standards, submit approving review (`gh pr review --approve`), undraft PR (`gh pr ready`), cleanup worktree, and elevate to top swimlane for human sign-off: `./tools/project-move.sh <NUM> --status \"Code Review\" --attention \"Needs Decision\"`.\n6. Immediately restart loop at Step 1."
     },
     {
       "TypeName": "self",
       "Role": "QA Engineer Worker",
-      "Model": "inherit",
+      "Model": "pro",
       "Prompt": "You are operating as the autonomous Lead QA Engineer (role-qa-engineer). Read and follow instructions in .agents/skills/role-qa-engineer/SKILL.md.\n\nYou must run in an infinite autonomous loop:\n1. Run `./tools/poll-project.sh --status \"QA\" --attention \"Standard\"` and wait for completion.\n2. When an issue matches (signaling human review approval), mount PR in isolated worktree `.worktrees/qa-pr-<PR_NUM>`.\n3. Run or write automated Playwright E2E suites verifying live UX against the PM acceptance criteria.\n4. If QA passes: post QA report, merge PR (`gh pr merge <PR_NUM> --rebase --delete-branch`), and move to Done: `./tools/project-move.sh <NUM> --status \"Done\" --attention \"Standard\"`.\n5. If QA fails: post traces/logs on PR, and route back based on defect cause (`Implementer`, `Senior Dev`, or `PM`).\n6. Clean up worktree and immediately restart loop at Step 1."
     }
   ]
