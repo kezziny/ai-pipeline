@@ -191,10 +191,19 @@ This document aggregates architectural refinements, role enhancements, and workf
 - **Proposed Solution**: Add `--compact` (`-q`) flag printing a single-line match summary: `[poll-project] MATCH: #42 "Title" (Status: PM, ID: PVTI_...)`.
 - **Affected Components**: `tools/poll-project.sh`, `README.md`, `instruction.md`
 
-### FB-15: Session Context Hygiene & Reset Architecture
-- **Problem**: Long-running subagents accumulate context across multiple issues; issue #3 re-sends #1 and #2 history on every turn.
-- **Proposed Solution**: Document context management in `instruction.md`: run `/compact` after an issue finishes, or orchestrate fresh subagents per issue.
-- **Affected Components**: `instruction.md`
+### FB-16: Ponytail Anti-Overengineering Reduction Ladder Integration
+- **Problem**: Autonomous agents often over-engineer solutions, introducing speculative abstraction layers, gratuitous helper utilities, or new third-party packages when standard libraries or existing code already solve the problem.
+- **Proposed Solution**:
+  - Incorporate Dietrich Gebert's **Ponytail Reduction Ladder** directly into repository pillars and role skills:
+    1. *Does this need to exist?* (YAGNI).
+    2. *Is it already in this codebase?* (Reuse existing services/DTOs/utilities).
+    3. *Does the standard library handle it?* (Built-in language runtime features).
+    4. *Does the native platform/browser handle it?* (Native OS/browser capabilities).
+    5. *Is it in an already installed dependency?* (Never add new packages without explicit reason).
+    6. *Can it be written in a few clean lines?*
+    7. *Only then*: Author minimal code.
+  - Enforce in `AGENTS.md` (Pillar 5), `role-senior-developer/SKILL.md` (plan generation), `role-implementer/SKILL.md` (coding), and `role-architect/SKILL.md` (audit criteria).
+- **Affected Components**: `AGENTS.md`, `role-senior-developer/SKILL.md`, `role-implementer/SKILL.md`, `role-architect/SKILL.md`
 
 ---
 
@@ -217,6 +226,8 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-13** | Diff Windowing & Lockfile Exclusions for Code Reviewer | Medium | ✅ Implemented |
 | **FB-14** | Compact Match Banner (`poll-project.sh --compact`) | Medium | ✅ Implemented |
 | **FB-15** | Session Context Hygiene & Reset Architecture (`instruction.md`) | High | ✅ Implemented |
+| **FB-16** | Ponytail Anti-Overengineering Reduction Ladder Integration | High | ✅ Implemented |
+
 
 
 

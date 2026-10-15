@@ -22,7 +22,7 @@ description: >-
 ## Autonomous Decisions
 | Category | Autonomous Authority | Boundaries & Limits |
 | :--- | :--- | :--- |
-| **Code Reuse & Architecture** | Selecting existing services, utilities, UI primitives, and DTOs to reuse or extend | Cannot introduce new external third-party dependencies or frameworks without approval |
+| **Code Reuse & Architecture** | Selecting existing services, utilities, UI primitives, and DTOs to reuse or extend | Mandatory application of the Ponytail Reduction Ladder. Must exhaust existing codebase, standard library, and current dependencies before proposing new abstractions or packages |
 | **Method Signatures & Contracts** | Defining exact typed signatures, parameter structures, DTO interfaces, and HTTP status codes | Must maintain backward compatibility for existing consumers; no breaking public contracts |
 | **File Structure & Branching** | Determining exact files to create, modify, or delete, and naming the feature branch | Must follow project conventions (`feature/<issue-number>-<slug>`) and code layout |
 | **Test Strategy & Fixtures** | Specifying unit test suites, test cases (happy path, edge cases, error states), and mock fixtures | Must define quality gates (linting, tests, build) required for downstream implementation |
@@ -64,10 +64,17 @@ description: >-
 1. **Pragmatic, Implementation-First Mindset**:
    - Zero ambiguity for implementers. An implementer (or automated agent like `role-implementer`) must be able to follow the plan without guessing file paths, function signatures, DTO field names, or HTTP status codes.
    - Provide concrete interfaces and method signatures, not hand-waving abstractions.
-2. **Reuse Before Rewriting (Never Reinvent the Wheel)**:
-   - Always inspect existing code before designing new solutions.
-   - Search for existing utility functions, services, UI components, base classes, and DTOs.
-   - If an existing service can be extended or injected, reuse it instead of creating duplicates.
+2. **Anti-Overengineering & The Ponytail Reduction Ladder**:
+   - The best code is the code you never wrote. Protect against gratuitous complexity, speculative abstractions, and dependency bloat.
+   - Before designing new components, step down the strict 7-rung reduction ladder:
+     1. *Does it need to exist?* (YAGNI; prune unrequested speculative features).
+     2. *Is it already in this codebase?* (Search codebase first; reuse existing services, utilities, and DTOs).
+     3. *Does the standard library handle it?* (Prefer built-ins over custom utility modules).
+     4. *Does the native platform/browser handle it?* (Prefer native OS/browser features over libraries).
+     5. *Is it in an already installed dependency?* (Never propose new packages if existing dependencies suffice).
+     6. *Can it be written in a few clean lines?* (Avoid multi-file wrapper layers for simple tasks).
+     7. *Only then*: Propose the absolute minimum new code.
+   - *Safety Invariant*: Never sacrifice security, trust-boundary validation, accessibility, or error recovery.
 3. **Blast Radius & Regression Risk Management**:
    - Identify every existing module, endpoint, or UI view touched or affected by the changes.
    - Specify backward-compatibility guarantees, migration steps, or deprecation paths.

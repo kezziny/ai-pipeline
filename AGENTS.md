@@ -92,6 +92,18 @@ Every technical implementation must satisfy the **Four Architectural Pillars**:
    - Use exponential backoff with jitter for retries on transient external calls.
    - Never suppress exceptions silently without logging structured diagnostic context.
 
+5. **Anti-Overengineering & The Reduction Ladder (Ponytail Principle)**:
+   - *“The best code is the code you never wrote.”* Protect against gratuitous complexity, speculative abstractions, and dependency bloat.
+   - Before designing new modules or writing code, step down the strict 7-rung reduction ladder:
+     1. **Does this need to exist at all?** (Apply YAGNI; prune unrequested features).
+     2. **Is it already in this codebase?** (Reuse existing services, utilities, and DTOs; never duplicate).
+     3. **Does the standard library handle it?** (Use language/runtime built-ins instead of custom utilities).
+     4. **Does the native platform/browser handle it?** (Use native OS/browser capabilities instead of libraries).
+     5. **Is it in an already installed dependency?** (Never install a new package if an existing dependency can do it).
+     6. **Can it be written in a few clean lines?** (Avoid multi-file wrapper layers for simple logic).
+     7. **Only then**: Author the absolute minimum code that satisfies the requirement.
+   - *Safety Invariant*: Never sacrifice security, trust-boundary validation, accessibility, or error handling.
+
 ---
 
 ## 5. Quality Gate Standards (Pre-Review & Pre-Merge)
