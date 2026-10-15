@@ -1,0 +1,13 @@
+# Worktrees and environments
+.worktrees/
+.env
+*.log
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
