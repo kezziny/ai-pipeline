@@ -61,6 +61,20 @@ This document aggregates architectural refinements, role enhancements, and workf
 
 ---
 
+### FB-06: Code Reviewer Scope Refinement (Feature Fidelity, Code Quality & Anti-Duplication)
+- **Problem**: With test and build execution offloaded to PR checks (FB-03), the Code Reviewer's core value must center on human-level engineering discernment rather than mechanical test verification.
+- **Proposed Solution**:
+  - Focus `role-code-reviewer` explicitly on four core audit pillars:
+    1. **Feature Fidelity & Completeness**: Verify the diff strictly implements the requested feature as specified in the PM requirements and approved technical plan (no missing acceptance criteria, no unauthorized feature creep).
+    2. **Code Quality & Craftsmanship**: Verify clean code patterns, meaningful naming, maintainability, robust error handling, strong typing (no lazy `any`), and lack of unintended side effects.
+    3. **DRY & Anti-Duplication**: Actively audit for redundant logic, copy-pasted helper functions, duplicate DTOs, or reimplementations of existing utility/service capabilities available in the codebase.
+    4. **Architectural & Security Integrity**: Verify module boundaries, encapsulation, and that no secrets, leaky abstractions, or security vulnerabilities are introduced.
+- **Affected Components**:
+  - `role-code-reviewer/SKILL.md` (audit checklist, report template, and evaluation criteria)
+  - `README.md`, `instruction.md`, `AGENTS.md`
+
+---
+
 ## 3. Specification & Planning Ergonomics
 
 ### FB-05: Compact Technical Implementation Plans (Expandable Details)
@@ -95,3 +109,5 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-03** | Reviewer & QA CI Offloading (Check status inspection vs local re-runs) | Medium | ⏳ Pending |
 | **FB-04** | Redefined QA Responsibilities (Coverage Audit & Live UX / Look-and-Feel) | High | ⏳ Pending |
 | **FB-05** | Compact Technical Plans with `<details>` Expandable Blocks | Medium | ⏳ Pending |
+| **FB-06** | Code Reviewer Focus: Feature Fidelity, Code Quality & Anti-Duplication | High | ⏳ Pending |
+
