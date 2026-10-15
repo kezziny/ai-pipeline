@@ -146,6 +146,21 @@ This document aggregates architectural refinements, role enhancements, and workf
 
 ---
 
+### FB-10: Architect Proposals for AGENTS.md Conventions
+- **Problem**: When `role-architect` identifies architectural guardrails, contract deduplication rules, or modular boundaries during plan review, there was no standardized format in the review comment for proposing additions to `AGENTS.md`. Implementer and Code Reviewer only tracked PM proposals.
+- **Proposed Solution**:
+  - `role-architect` includes an explicit `#### Proposed AGENTS.md Additions` block in its architecture review comments when reusable patterns or guardrails are identified.
+  - `role-architect/SKILL.md` documents `AGENTS.md Harvesting` under Autonomous Decisions and in the approval comment template.
+  - `role-implementer` incorporates conventions from both PM spec and Architect comments into `AGENTS.md` in the PR branch.
+  - `role-code-reviewer` audits all proposed conventions (PM + Architect) in the PR diff.
+- **Affected Components**:
+  - `role-architect/SKILL.md` (Autonomous Decisions, Case B Review Template)
+  - `role-implementer/SKILL.md` (Step 4 AGENTS.md update scope)
+  - `role-code-reviewer/SKILL.md` (Checklist AGENTS.md audit)
+  - `AGENTS.md` (Section 6 Continuous Improvement Engine)
+
+---
+
 ## Batch Implementation Tracker
 
 | ID | Title | Priority | Status |
@@ -159,6 +174,8 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-07** | Closed-Loop AGENTS.md Evolution (Implementer Updates, Reviewer Verifies) | High | ✅ Implemented |
 | **FB-08** | PM High-Level Focus (Strict ban on file paths and technical implementation) | High | ✅ Implemented |
 | **FB-09** | PM Synchronizes Issue Title with Feature Name (`gh issue edit --title`) | Medium | ✅ Implemented |
+| **FB-10** | Architect AGENTS.md Proposals (Guardrails codified in approval comment) | Medium | ✅ Implemented |
+
 
 
 

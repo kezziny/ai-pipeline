@@ -144,7 +144,7 @@ cd "$WORKTREE_DIR"
 - Implement business logic, services, and user interfaces.
 - Add or update relevant unit test suites.
 - **Incorporate Proposed AGENTS.md Additions**:
-  Check `## 4. Proposed AGENTS.md Additions` in the issue specification. If new conventions, patterns, or UX guidelines are proposed (and not marked `None`), update `AGENTS.md` directly in the feature branch and include the change in your commit.
+  Check `## 4. Proposed AGENTS.md Additions` in the issue specification AND `#### Proposed AGENTS.md Additions` in the Architect review comments. If new conventions, patterns, or architectural guardrails are proposed (and not marked `None`), update `AGENTS.md` directly in the feature branch and include the change in your commit.
 
 #### Case B: Addressing Review or QA Feedback
 When the issue was moved back to `Implementer` from `Code Review` or `QA`:

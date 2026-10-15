@@ -133,7 +133,7 @@ cd -
 - [ ] Does the implementation reuse existing services and components rather than reinventing them?
 
 ### D. Repository Conventions & AGENTS.md Evolution
-- [ ] If the issue specified `## 4. Proposed AGENTS.md Additions`, does the PR diff update `AGENTS.md`?
+- [ ] If the issue specified `## 4. Proposed AGENTS.md Additions` or the Architect review proposed `#### Proposed AGENTS.md Additions`, does the PR diff update `AGENTS.md`?
 - [ ] Are the updated rules in `AGENTS.md` accurate and adhering to project standards?
 
 ---

@@ -27,6 +27,7 @@ description: >-
 | **Plan Rejection & Blockers** | Blocking implementation plans that introduce coupling, memory leaks, security risks, or contract duplication | Must provide actionable code/contract alternatives or pattern snippets for every blocker |
 | **Architectural Patterns** | Prescribing specific structural patterns (dependency injection, shared DTOs, isolation layers, event cleanup) | Must align with repository standards and technology stack documented in `AGENTS.md` |
 | **Contract Standardization** | Requiring normalization, deduplication, and consolidation of shared interfaces and API routes | Must ensure backward compatibility for existing consumers unless deprecation planned |
+| **AGENTS.md Harvesting** | Proposing generalizable architectural guardrails, boundary rules, and contract guidelines for repository adoption | Must format additions cleanly in the architecture review report for Implementer pickup |
 
 ## Human Escalation Triggers
 | Trigger Event | Reason for Human Intervention | Target Action & Board Attention |
@@ -151,6 +152,11 @@ The implementation plan has been audited and approved by the Architect:
 - **Data Contracts**: Strongly typed shared DTOs, zero contract duplication.
 - **Resource Safety**: Leak-free lifecycle and resource cleanup verified.
 - **Robustness & Security**: Input validation and access guards intact.
+
+#### Proposed AGENTS.md Additions (Architectural Guardrails)
+- **Guideline**: `<Proposed architectural rule, boundary constraint, or contract pattern>`
+- **Rationale**: `<Context on why this pattern protects the codebase>`
+*(or `*None for this plan.*` if no new architectural rules apply)*
 
 The issue is approved and moved to **Ready** (implementation backlog, awaiting development start).
 ```

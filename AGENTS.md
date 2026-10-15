@@ -121,8 +121,9 @@ No PR may be transitioned to `Code Review` or merged to `Done` without passing t
 1. **Harvesting During Execution**:
    - **Product Manager (`role-product-manager`)**: Identifies reusable domain terms, user journey conventions, or product rules during requirements scoping and appends them to issue specifications under `Proposed AGENTS.md Additions`.
    - **Senior Developer (`role-senior-developer`)**: Captures recurring architectural patterns, code reuse standards, and library choices.
-   - **Implementer (`role-implementer`)**: Notes linter nuances, test mock patterns, and environment quirks encountered during coding. In addition, Implementer applies PM's `Proposed AGENTS.md Additions` directly to `AGENTS.md` in the feature branch diff.
-   - **Code Reviewer (`role-code-reviewer`)**: Documents recurring anti-patterns, style edge cases, and security review rules. Audits and validates the `AGENTS.md` modifications in the PR diff.
+   - **Software Architect (`role-architect`)**: Codifies generalizable architectural guardrails, contract deduplication rules, and boundary constraints into `Proposed AGENTS.md Additions` in the architecture review report.
+   - **Implementer (`role-implementer`)**: Notes linter nuances, test mock patterns, and environment quirks encountered during coding. In addition, Implementer applies proposed `AGENTS.md` additions (from both PM and Architect) directly to `AGENTS.md` in the feature branch diff.
+   - **Code Reviewer (`role-code-reviewer`)**: Documents recurring anti-patterns, style edge cases, and security review rules. Audits and validates that proposed `AGENTS.md` additions are accurately reflected in the PR diff.
    - **QA Engineer (`role-qa-engineer`)**: Contributes reusable Playwright selectors, UX verification patterns, and environment stability practices.
 
 2. **Synthesis & Integration**:
