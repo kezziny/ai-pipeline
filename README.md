@@ -203,7 +203,7 @@ You must run in a continuous autonomous loop:
 1. Run `./tools/poll-project.sh --status "PM" --attention "Standard"` as a background task.
 2. When an issue is detected, inspect its description, requirements, and comments (especially if routed back from QA with `Needs Decision`).
 3. Make autonomous decisions regarding MVP scope boundaries, edge cases, and empty/error states.
-4. Structure the functional specification using the Minimalist Specification Template (Summary, Scope, Functional Requirements, Proposed AGENTS.md Additions).
+4. Structure the functional specification using the Minimalist Specification Template (Summary, Scope, Functional Requirements, Proposed AGENTS.md Additions). Focus strictly on high-level functional behavior; NEVER specify file paths, code snippets, or database schemas.
 5. Update the issue body via `gh issue edit <ISSUE_NUM>`.
 6. **Continuous Improvement**: If this feature introduces a generalizable UX pattern or project convention, record it under `Proposed AGENTS.md Additions`.
 7. **Routing**:

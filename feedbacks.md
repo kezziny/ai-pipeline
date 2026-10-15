@@ -114,6 +114,26 @@ This document aggregates architectural refinements, role enhancements, and workf
 
 ---
 
+## 5. Requirements Scoping & Role Boundaries
+
+### FB-08: PM High-Level Focus (No File Details or Implementation Mechanics)
+- **Problem**: `role-product-manager` frequently leaks into technical planning by listing specific code files to edit, suggesting code snippets, or prescribing internal implementation mechanics. This duplicates and constrains `role-senior-developer`.
+- **Proposed Solution**:
+  - Enforce strict high-level functional focus in `role-product-manager/SKILL.md`.
+  - Explicitly forbid:
+    - Specifying exact code files, directory structures, or file paths.
+    - Providing code snippets, API implementations, class/function signatures, or database schemas.
+    - Specifying internal software design or framework mechanics.
+  - Limit PM deliverables strictly to:
+    - Business context & user problem.
+    - Scope boundaries (in-scope vs out-of-scope).
+    - User-observable behavior, validation rules, error/empty/loading UX states, and testable acceptance criteria.
+    - High-level domain/UX conventions for `AGENTS.md`.
+- **Affected Components**:
+  - `role-product-manager/SKILL.md` (Operating principles, Boundaries table, Minimalist Spec template)
+
+---
+
 ## Batch Implementation Tracker
 
 | ID | Title | Priority | Status |
@@ -125,6 +145,8 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-05** | Compact Technical Plans with `<details>` Expandable Blocks | Medium | ✅ Implemented |
 | **FB-06** | Code Reviewer Focus: Feature Fidelity, Code Quality & Anti-Duplication | High | ✅ Implemented |
 | **FB-07** | Closed-Loop AGENTS.md Evolution (Implementer Updates, Reviewer Verifies) | High | ✅ Implemented |
+| **FB-08** | PM High-Level Focus (Strict ban on file paths and technical implementation) | High | ✅ Implemented |
+
 
 
 
