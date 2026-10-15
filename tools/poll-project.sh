@@ -15,8 +15,8 @@ Usage:
   tools/poll-project.sh "<STATUS>" [INTERVAL_SECONDS]
 
 Options:
-  -s, --status      Target column/status (e.g. "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA")
-  -a, --attention   Target attention swimlane (default: "Standard")
+  -s, --status      Target column/status (e.g. "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA", "Done" or role aliases like "role-implementer")
+  -a, --attention   Target attention swimlane (default: "Standard", supports aliases like "needs-decision")
   -i, --interval    Polling interval in seconds (default: 10)
   -p, --project     Project number (default from .project-config.json or $GH_PROJECT_NUMBER)
   -o, --owner       Project owner (default from .project-config.json or $GH_PROJECT_OWNER)
@@ -136,6 +136,45 @@ target_attention = "${TARGET_ATTENTION}".strip().lower()
 status_field = "${STATUS_FIELD}".strip().lower()
 attention_field = "${ATTENTION_FIELD}".strip().lower()
 
+STATUS_ALIASES = {
+    "role-product-manager": "pm",
+    "product-manager": "pm",
+    "product manager": "pm",
+    "pm": "pm",
+    "role-senior-developer": "senior dev",
+    "senior-developer": "senior dev",
+    "senior developer": "senior dev",
+    "senior-dev": "senior dev",
+    "senior dev": "senior dev",
+    "role-architect": "architect",
+    "architect": "architect",
+    "role-implementer": "implementer",
+    "issue-implementer": "implementer",
+    "implementer": "implementer",
+    "role-code-reviewer": "code review",
+    "code-reviewer": "code review",
+    "code reviewer": "code review",
+    "code-review": "code review",
+    "code review": "code review",
+    "role-qa-engineer": "qa",
+    "qa-engineer": "qa",
+    "qa engineer": "qa",
+    "qa": "qa",
+    "done": "done",
+    "backlog": "backlog",
+}
+
+ATTENTION_ALIASES = {
+    "standard": "standard",
+    "needs decision": "needs decision",
+    "needs-decision": "needs decision",
+    "needs_decision": "needs decision",
+    "decision": "needs decision",
+}
+
+norm_target_status = STATUS_ALIASES.get(target_status, target_status)
+norm_target_attention = ATTENTION_ALIASES.get(target_attention, target_attention)
+
 for item in data.get("items", []):
     item_status = ""
     item_attention = ""
@@ -152,7 +191,13 @@ for item in data.get("items", []):
     if not item_attention:
         item_attention = "standard"
 
-    if item_status == target_status and item_attention == target_attention:
+    norm_item_status = STATUS_ALIASES.get(item_status, item_status)
+    norm_item_attention = ATTENTION_ALIASES.get(item_attention, item_attention)
+
+    match_status = (item_status == target_status or norm_item_status == norm_target_status)
+    match_attention = (item_attention == target_attention or norm_item_attention == norm_target_attention)
+
+    if match_status and match_attention:
         content = item.get("content", {})
         num = content.get("number")
         title = content.get("title", "")

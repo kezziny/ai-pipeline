@@ -11,17 +11,17 @@ usage() {
   cat <<'EOF'
 Usage:
   tools/poll-issues.sh "<LABEL>" [INTERVAL_SECONDS] [REPO]
-  tools/poll-issues.sh --label "<LABEL>" [--interval 10] [--repo da4h/ui]
+  tools/poll-issues.sh --label "<LABEL>" [--interval 10] [--repo kezziny/ai-pipeline]
 
 Arguments:
   LABEL            Label to watch for (e.g. "Requirement", "Implementation plan", "Plan review", "Ready")
   INTERVAL_SECONDS Polling interval in seconds (default: 10)
-  REPO             GitHub repository in owner/repo format (default: auto-detected or da4h/ui)
+  REPO             GitHub repository in owner/repo format (default: auto-detected or kezziny/ai-pipeline)
 
 Options:
   -l, --label      Label to watch for
   -i, --interval   Polling interval in seconds (default: 10)
-  -r, --repo       Repository (e.g. da4h/ui)
+  -r, --repo       Repository (e.g. kezziny/ai-pipeline)
   -h, --help       Show this help message
 EOF
   exit "${1:-0}"
@@ -81,7 +81,13 @@ if [ -z "$REPO" ]; then
   if [ -n "$DETECTED_REPO" ]; then
     REPO="$DETECTED_REPO"
   else
-    REPO="da4h/ui"
+    # Try git config remote origin URL fallback
+    GIT_ORIGIN=$(git config --get remote.origin.url 2>/dev/null || true)
+    if [[ "$GIT_ORIGIN" =~ github\.com[:/]([^/]+/[^/\.]+)(\.git)?$ ]]; then
+      REPO="${BASH_REMATCH[1]}"
+    else
+      REPO="kezziny/ai-pipeline"
+    fi
   fi
 fi
 

@@ -1,0 +1,204 @@
+---
+name: role-implementer
+description: >-
+  Autonomous issue implementation specialist for the GitHub Projects development pipeline.
+  Trigger ONLY when processing assigned GitHub Project issues or when explicitly asked to run as role-implementer. DO NOT activate for normal interactive pair-programming, ad-hoc questions, or manual edits.
+---
+
+# Role: Implementer Skill
+
+> ⚠️ **PIPELINE CONTEXT GUARD**  
+> This skill is designated exclusively for autonomous pipeline operations on GitHub Project items.  
+> If invoked during normal interactive pair-programming, ad-hoc questions, or manual edits outside pipeline automation,  
+> **DO NOT** execute worktree setups, git branch checkouts, or GitHub project status transitions.  
+> Halt pipeline actions and clarify instructions with the user.
+
+## Core Purpose & Primary Focus
+- **Scope**: Autonomous coding, unit testing, and feedback resolution for GitHub issues in `Implementer` status. Operates strictly inside isolated git worktrees (`.worktrees/issue-<ISSUE_NUMBER>`). Follows approved implementation plans. Excludes high-level architecture decisions (handled by `role-architect`) and requirements scoping (handled by `role-product-manager`).
+- **Objectives**: Faithful and high-quality implementation of approved plans; zero unverified code pushed to remote; rapid resolution of review comments and QA defects with clear replies; strict adherence to repository quality gates (linting, tests, build).
+- **Deliverables**: Tested and formatted code commits on dedicated feature branch (`feature/<issue-number>-<slug>`); Draft Pull Request converted to Ready for Review; quality gate verification evidence; project board status transitioned to `Code Review`.
+
+## Autonomous Decisions
+| Category | Autonomous Authority | Boundaries & Limits |
+| :--- | :--- | :--- |
+| **Internal Code Implementation** | Writing algorithms, private functions, and component logic within planned file boundaries | Cannot alter public method signatures, DTO contracts, or module boundaries defined in the approved plan |
+| **Unit Test Authoring** | Creating unit tests, assertions, mock instances, and edge-case test suites | Must ensure all existing and new unit tests pass cleanly |
+| **Code Styling & Formatting** | Applying local refactoring and code formatting to comply with linter rules | Must not modify unrelated files outside the approved plan ("while-I'm-here" edits forbidden) |
+| **Worktree Lifecycle Management** | Creating, mounting, and removing dedicated worktree directories in `.worktrees/` | Must never check out feature branches directly in the primary workspace root |
+
+## Human Escalation Triggers
+| Trigger Event | Reason for Human Intervention | Target Action & Board Attention |
+| :--- | :--- | :--- |
+| **Missing Secrets or Credentials** | Build, test suite, or integration requires local secret or API token not present in environment | Post requirement comment; `tools/project-move.sh <ID> --attention "Needs Decision"` |
+| **Unresolvable Merge Conflicts** | Severe upstream git conflicts with master that cannot be safely resolved autonomously | Post conflict details comment; `tools/project-move.sh <ID> --attention "Needs Decision"` |
+| **Defective Technical Plan** | Approved plan contains fatal syntax/type errors, impossible imports, or non-existent APIs | Route backward to `Senior Dev` (`Status: Senior Dev`, `Attention: Needs Decision`) with error logs |
+| **Infrastructure / Toolchain Failure** | Compiler, package manager, or environment runner crashes due to external/host defects | Post diagnostic report; `tools/project-move.sh <ID> --attention "Needs Decision"` |
+
+## Transition & Routing Rules
+### Forward Transitions
+| Current Status | Prerequisite / Condition | Target Status | Attention | Action |
+| :--- | :--- | :--- | :--- | :--- |
+| `Implementer` | Code complete, rebased onto `origin/master`, all quality gates pass (lint, test, build), PR marked ready | `Code Review` | `Standard` | `tools/project-move.sh <ID> --status "Code Review" --attention "Standard"` |
+
+### Backward Transitions & Defect Routing
+| Problem Condition | Target Status | Attention | Action |
+| :--- | :--- | :--- | :--- |
+| **Technical Plan Infeasible or Architecturally Defective** | `Senior Dev` | `Needs Decision` | Post issue comment detailing plan deficiency; `tools/project-move.sh <ID> --status "Senior Dev" --attention "Needs Decision"` |
+| **Contradictory / Impossible Functional Requirement Discovered** | `PM` | `Needs Decision` | Post issue comment detailing requirement contradiction; `tools/project-move.sh <ID> --status "PM" --attention "Needs Decision"` |
+| **Addressing Feedback from Code Review or QA** | `Implementer` | `Standard` | (Current stage) Fix reported issues, reply to comments, push commits, and transition forward to `Code Review` |
+
+## Continuous Improvement Engine
+### AGENTS.md Convention Harvesting
+- Identify reusable coding patterns, worktree operational idioms, linting quirks, or testing mock patterns discovered during implementation.
+- Propose additions to `AGENTS.md` covering newly established idioms, library usage nuances, or environment quirks.
+- Submit proposals as PR comments or documentation updates.
+
+### Skill Self-Refinement
+- If worktree setup steps, dependency linking, or git commands encounter friction or platform-specific failures, document the resolution.
+- Propose concrete updates to `.agents/skills/role-implementer/SKILL.md` to keep workflow steps robust and resilient.
+
+---
+
+## Operating Principles
+1. **Plan-Driven Implementation**: Implement code strictly following the approved `Implementation Plan` section in the issue description. Comply with project architectural rules (`AGENTS.md`).
+2. **Isolated Worktree Directory**: Never check out feature branches directly inside the primary repository root. Always create and work inside a dedicated worktree directory (`.worktrees/issue-<ISSUE_NUMBER>`). This prevents parallel coding, review, and test runs from colliding or interfering with each other's checked-out files.
+3. **Early Draft PR**: When starting a new feature branch, immediately open a Draft PR (`gh pr create --draft`). This provides visibility and ensures early CI validation.
+4. **Mandatory Quality Gates**: Before submitting for review, the implementation MUST pass local checks:
+   - Git rebase onto latest `origin/master`.
+   - Project linting, unit test suites, and clean builds.
+5. **Iterative Review Resolution**: If an issue was returned from code review or QA:
+   - Inspect all review comments, QA defect reports, or change requests.
+   - Implement the requested fixes as new commits on the existing branch.
+   - Reply directly to each review comment with a brief summary of how it was resolved.
+6. **Bot Identity**: All GitHub CLI operations run under `No Git Sherlock [bot]`.
+
+---
+
+## Polling for Work
+Run `tools/poll-project.sh` as a background task to wait for assigned issues:
+```bash
+tools/poll-project.sh --status "Implementer" --attention "Standard"
+```
+When this command terminates with status `0`, an issue in the `Implementer` column is ready for coding or feedback resolution.
+
+---
+
+## Step-by-Step Implementation Workflow
+
+### Step 1: Issue Inspection
+Inspect the issue requirements and technical plan:
+```bash
+gh issue view <ISSUE_NUMBER> --json title,body
+```
+
+---
+
+### Step 2: Isolated Worktree & Branch Setup
+To enable concurrent work without branch conflicts, operate inside `.worktrees/issue-<ISSUE_NUMBER>`:
+
+1. Fetch latest changes from remote:
+   ```bash
+   git fetch origin master
+   ```
+2. Check if a branch or PR already exists for the issue:
+   ```bash
+   gh pr list --search "<ISSUE_NUMBER>" --json number,headRefName,isDraft,url
+   ```
+3. **If starting a new branch**:
+   ```bash
+   WORKTREE_DIR=".worktrees/issue-<ISSUE_NUMBER>"
+   BRANCH_NAME="feature/<ISSUE_NUMBER>-<short-slug>"
+
+   # Create isolated worktree branching from origin/master
+   git worktree add "$WORKTREE_DIR" -b "$BRANCH_NAME" origin/master
+
+   # If dependencies exist in main repository, link them to avoid redundant installs
+   # e.g., ln -s "$(pwd)/node_modules" "$WORKTREE_DIR/node_modules"
+
+   # Create initial commit and open Draft PR
+   cd "$WORKTREE_DIR"
+   git commit --allow-empty -m "feat(issue-<ISSUE_NUMBER>): start implementation for #<ISSUE_NUMBER>"
+   git push -u origin "$BRANCH_NAME"
+   gh pr create --draft --title "feat(issue-<ISSUE_NUMBER>): <issue-title>" --body "Closes #<ISSUE_NUMBER>. Initial draft implementation based on issue plan."
+   cd -
+   ```
+4. **If continuing an existing branch (addressing review or QA feedback)**:
+   ```bash
+   WORKTREE_DIR=".worktrees/issue-<ISSUE_NUMBER>"
+   git fetch origin <branch-name>
+
+   # Mount existing branch into isolated worktree
+   git worktree add "$WORKTREE_DIR" <branch-name>
+   ```
+
+---
+
+### Step 3: Coding & Feedback Resolution
+Perform all edits, commits, and tests inside `$WORKTREE_DIR`:
+```bash
+cd "$WORKTREE_DIR"
+```
+
+#### Case A: Fresh Implementation
+- Follow the `Files Modified / Created` table and DTO contracts defined in the issue plan.
+- Implement business logic, services, and user interfaces.
+- Add or update relevant unit test suites.
+
+#### Case B: Addressing Review or QA Feedback
+When the issue was moved back to `Implementer` from `Code Review` or `QA`:
+1. Read the latest review comments or QA logs from the PR:
+   ```bash
+   gh pr view <PR_NUMBER> --comments
+   ```
+2. Address each observation and make the required code corrections.
+3. Commit the fixes with a clear message:
+   ```bash
+   git commit -m "fix(issue-<ISSUE_NUMBER>): address feedback on <topic>"
+   ```
+4. Reply directly to each review comment on GitHub with a concise summary of the resolution:
+   ```bash
+   gh pr comment <PR_NUMBER> --body "Fixed in latest commit: <brief summary of changes>."
+   ```
+
+---
+
+### Step 4: Quality Gate Verification
+Inside `$WORKTREE_DIR`, run verification before handover:
+
+1. **Rebase onto latest master**:
+   ```bash
+   git fetch origin master && git rebase origin/master
+   ```
+2. **Run Tests & Build**:
+   Execute repository test suites and build commands.
+3. **Push verified code**:
+   ```bash
+   git push origin "$BRANCH_NAME"
+   ```
+4. Return to repository root:
+   ```bash
+   cd -
+   ```
+
+---
+
+### Step 5: Transition to Code Review & Cleanup Worktree
+Once local checks pass and code is pushed:
+
+1. **Ensure PR is Ready for Review (convert from Draft if needed)**:
+   ```bash
+   gh pr ready <PR_NUMBER>
+   ```
+2. **Transition Project Board Status**:
+   Move item to `Code Review` with `Attention: Standard`:
+   ```bash
+   tools/project-move.sh <ISSUE_NUMBER> --status "Code Review" --attention "Standard"
+   ```
+3. Post a handover comment on the issue/PR:
+   ```bash
+   gh issue comment <ISSUE_NUMBER> --body "Implementation complete and verified. PR #<PR_NUMBER> is ready for code review."
+   ```
+4. **Remove the Temporary Worktree**:
+   ```bash
+   git worktree remove "$WORKTREE_DIR" --force
+   ```

@@ -12,29 +12,35 @@ Issues flow across role-based board columns from initial concept to production m
 flowchart TD
     Backlog["1. Backlog<br/>(Inbox / Human triage)"] -->|"Human moves to PM"| PM["2. Product Manager<br/>(role-product-manager)"]
 
-    PM -->|"Scope defined"| SeniorDev["3. Senior Developer<br/>(role-senior-developer)"]
+    PM -->|"Scope defined<br/>Status: Senior Dev<br/>Attention: Standard"| SeniorDev["3. Senior Developer<br/>(role-senior-developer)"]
     PM -->|"Unclear requirements<br/>Attention: Needs Decision"| HumanPM["Human Clarification"]
     HumanPM -->|"Answered<br/>Attention: Standard"| PM
 
-    SeniorDev -->|"Tech plan prepared"| Architect["4. Software Architect<br/>(role-architect)"]
+    SeniorDev -->|"Tech plan prepared<br/>Status: Architect<br/>Attention: Standard"| Architect["4. Software Architect<br/>(role-architect)"]
     SeniorDev -->|"Trade-offs needed<br/>Attention: Needs Decision"| HumanDev["Human Decision"]
     HumanDev -->|"Decided<br/>Attention: Standard"| SeniorDev
+    SeniorDev -->|"Ambiguous requirements<br/>Status: PM"| PM
 
-    Architect -->|"Plan approved"| Implementer["5. Issue Implementer<br/>(issue-implementer)"]
-    Architect -->|"Plan revisions needed"| SeniorDev
+    Architect -->|"Plan approved<br/>Status: Implementer<br/>Attention: Standard"| Implementer["5. Software Implementer<br/>(role-implementer)"]
+    Architect -->|"Plan revisions needed<br/>Status: Senior Dev<br/>Attention: Standard"| SeniorDev
+    Architect -->|"Architectural deadlock / policy exception<br/>Attention: Needs Decision"| HumanArch["Human Decision"]
+    HumanArch -->|"Resolved<br/>Attention: Standard"| Architect
 
-    Implementer -->|"Code ready & unit tests pass<br/>PR opened<br/>Attention: Standard"| AICodeReview["6a. AI Code Reviewer<br/>(code-review)"]
+    Implementer -->|"Code ready & gates pass<br/>PR opened<br/>Status: Code Review<br/>Attention: Standard"| AICodeReview["6a. AI Code Reviewer<br/>(role-code-reviewer)"]
+    Implementer -->|"Insurmountable blocker / missing secrets<br/>Attention: Needs Decision"| HumanImp["Human Decision"]
+    HumanImp -->|"Unblocked<br/>Attention: Standard"| Implementer
+    Implementer -->|"Plan defective / unviable<br/>Status: Senior Dev"| SeniorDev
 
-    AICodeReview -->|"AI issues found<br/>Attention: Standard"| Implementer
-    AICodeReview -->|"AI LGTM<br/>Attention: Needs Decision"| HumanReview["6b. Human Reviewer<br/>(Top Swimlane)"]
+    AICodeReview -->|"Review comments / fixes needed<br/>Status: Implementer<br/>Attention: Standard"| Implementer
+    AICodeReview -->|"AI review passed<br/>Status: Code Review<br/>Attention: Needs Decision"| HumanReview["6b. Human Reviewer<br/>(Mandatory Sign-Off)"]
 
-    HumanReview -->|"Changes requested<br/>Attention: Standard"| Implementer
-    HumanReview -->|"Approved<br/>Moves to QA<br/>Attention: Standard"| QA["7. QA Engineer<br/>(role-qa-engineer)"]
+    HumanReview -->|"Changes requested<br/>Status: Implementer<br/>Attention: Standard"| Implementer
+    HumanReview -->|"Approved<br/>Status: QA<br/>Attention: Standard"| QA["7. QA Engineer<br/>(role-qa-engineer)"]
 
-    QA -->|"Playwright E2E & UX verified<br/>Rebase-merges PR"| Done["8. Done<br/>(Merged & Closed)"]
-    QA -->|"Code bug"| Implementer
-    QA -->|"Architecture bug"| SeniorDev
-    QA -->|"Requirement bug"| PM
+    QA -->|"Playwright E2E & UX verified<br/>Rebase-merges PR<br/>Status: Done"| Done["8. Done<br/>(Merged & Closed)"]
+    QA -->|"Code defect<br/>Status: Implementer<br/>Attention: Standard"| Implementer
+    QA -->|"Architecture defect<br/>Status: Senior Dev<br/>Attention: Standard"| SeniorDev
+    QA -->|"Requirement defect<br/>Status: PM<br/>Attention: Needs Decision"| PM
 ```
 
 ---
@@ -51,13 +57,19 @@ flowchart TD
    - `role-qa-engineer` runs automated Playwright E2E suites and verifies UX against PM acceptance criteria before merging.
 4. **Workspace Isolation (`.worktrees/`)**:
    - Coding, review, and QA verification operate inside isolated git worktrees (`.worktrees/issue-<NUM>`, `.worktrees/review-pr-<NUM>`, `.worktrees/qa-pr-<NUM>`) to prevent branch collision and concurrent checkout conflicts.
-5. **Standardized Helper Tooling (`tools/`)**:
+5. **Continuous Improvement Engine & Repository Conventions (`AGENTS.md`)**:
+   - Pipeline agents continuously harvest established idioms, edge cases, and architectural guardrails into `AGENTS.md`.
+   - Clear trigger guards separate autonomous pipeline operations from interactive pair-programming chats.
+6. **Standardized Helper & Verification Tooling (`tools/`)**:
    - `tools/poll-project.sh`: Reactive long-polling for assigned project board cards.
    - `tools/project-move.sh`: Simple CLI helper to transition columns and swimlanes.
+   - `tools/verify-roles.sh`: Automated validator for role skill structures, YAML frontmatter, and trigger guards.
 
 ---
 
 ## 3. GitHub Project Board Setup
+
+### Step-by-Step Configuration
 
 1. **Create a GitHub Project (v2)**:
    - In your GitHub organization or user account, create a new Project (Board view).
@@ -93,11 +105,82 @@ flowchart TD
    }
    ```
 
+### Disambiguation: Board Status Columns vs. Role Skill Identifiers
+
+The GitHub Project board column names represent workflow stages, while agent skills define autonomous capabilities and trigger constraints. The mapping between them is strictly defined:
+
+| GitHub Project Board Column (`Status`) | Assigned Pipeline Role Identifier | Role Skill Path | Primary Focus & Deliverable |
+| :--- | :--- | :--- | :--- |
+| `Backlog` | Human Triage / Product Owner | — | Intake, priority ranking, assignment to `PM` |
+| `PM` | `role-product-manager` | `.agents/skills/role-product-manager/SKILL.md` | Functional requirements, UX states, scope boundaries |
+| `Senior Dev` | `role-senior-developer` | `.agents/skills/role-senior-developer/SKILL.md` | Technical implementation plan, reuse analysis, unit test strategy |
+| `Architect` | `role-architect` | `.agents/skills/role-architect/SKILL.md` | Architectural gatekeeping (4 pillars), plan approval or revisions |
+| `Implementer` | `role-implementer` | `.agents/skills/role-implementer/SKILL.md` | Feature implementation in worktree, unit tests, quality gates, draft PR |
+| `Code Review` | `role-code-reviewer` | `.agents/skills/role-code-reviewer/SKILL.md` | Automated PR check, diff audit, changes requested or human sign-off escalation |
+| `QA` | `role-qa-engineer` | `.agents/skills/role-qa-engineer/SKILL.md` | Playwright E2E verification, UX validation, PR rebase-merge to `Done` |
+| `Done` | Completed | — | Merged and closed issue |
+
 ---
 
-## 4. Specialized Roles & Continuous Chat Starter Prompts
+## 4. Authoritative Decision & Escalation Matrix
 
-To run an autonomous agent worker in a dedicated chat session, copy and paste the corresponding starter prompt into a new Antigravity chat.
+Every pipeline role is bounded by explicit autonomous authorities, human escalation mandates, and bidirectional routing protocols.
+
+### Master Decision & Escalation Matrix
+
+| Stage & Role Name | Monitored Status & Swimlane | Autonomous Decisions (Empowered Without Human) | Human Escalation Triggers (`Attention: Needs Decision`) | Forward Routing Condition & Action | Backward Routing Condition & Action |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. Product Manager**<br/>`role-product-manager` | `Status: "PM"`<br/>`Attention: "Standard"` | • MVP scope boundaries (in-scope vs out-of-scope)<br/>• Functional requirements, UX states (empty, error, loading)<br/>• Proposing new project conventions for `AGENTS.md` | • Irreconcilable ambiguity in user/business intent<br/>• Scope disputes or high-impact product roadmap trade-offs<br/>• QA bounces due to fundamental requirement contradictions | Spec complete & clear:<br/>`tools/project-move.sh <NUM> --status "Senior Dev" --attention "Standard"` | Invalid/out-of-scope issue:<br/>Move to `Backlog` or close with comment |
+| **2. Senior Developer & Tech Lead**<br/>`role-senior-developer` | `Status: "Senior Dev"`<br/>`Attention: "Standard"` | • Internal module design, class/service structures, DTO schemas<br/>• Selection of existing services/utilities for code reuse<br/>• Unit test strategies, mock fixtures, and quality gates<br/>• Resolving Architect revision requests without altering scope | • Need for new external third-party libraries/SDKs<br/>• Breaking API contract changes impacting outside consumers<br/>• Unresolvable technical trade-offs (e.g. storage vs compute, consistency models) | Plan complete & verified:<br/>`tools/project-move.sh <NUM> --status "Architect" --attention "Standard"` | Ambiguous/contradictory requirements:<br/>`tools/project-move.sh <NUM> --status "PM" --attention "Standard"` (or `Needs Decision`) |
+| **3. Software Architect**<br/>`role-architect` | `Status: "Architect"`<br/>`Attention: "Standard"` | • Auditing 4 architectural pillars (Modularity, DTOs, Leaks, Robustness)<br/>• Vetoing duplicate DTOs, circular dependencies, leaky abstractions<br/>• Prescribing concrete alternative design patterns/contracts<br/>• Approving or requesting revisions on implementation plans | • Fundamental architectural disagreement between Tech Lead & Architect<br/>• Core infrastructure, persistence layer, or multi-tenant boundary alterations<br/>• Security policy exceptions (unauthenticated endpoints, RBAC bypass) | Plan approved (all 4 pillars):<br/>`tools/project-move.sh <NUM> --status "Implementer" --attention "Standard"` | Plan flawed or needs revisions:<br/>`tools/project-move.sh <NUM> --status "Senior Dev" --attention "Standard"` |
+| **4. Software Implementer**<br/>`role-implementer` | `Status: "Implementer"`<br/>`Attention: "Standard"` | • Code implementation strictly within approved plan<br/>• Private helper methods, internal algorithms, refactoring<br/>• Authoring unit tests matching plan requirements<br/>• Resolving code review comments and QA code bug reports<br/>• Worktree lifecycle management (`.worktrees/issue-<NUM>`) | • Unresolvable git merge conflicts during master rebase<br/>• Missing secrets, API credentials, or broken baseline CI<br/>• Plan found to be technically unviable without major architectural rework<br/>• Persistent test suite failures in untouched upstream code | Quality gates pass (lint/test/build):<br/>`tools/project-move.sh <NUM> --status "Code Review" --attention "Standard"` | Plan unviable during coding:<br/>`tools/project-move.sh <NUM> --status "Senior Dev" --attention "Standard"` (with detailed blocker) |
+| **5. Code Reviewer**<br/>`role-code-reviewer` | `Status: "Code Review"`<br/>`Attention: "Standard"` | • Verifying implementation against issue Acceptance Criteria<br/>• Executing linters, tests, and builds in `.worktrees/review-pr-<PR_NUM>`<br/>• Submitting change requests for code style, missing tests, or edge cases<br/>• Submitting approving AI review (`gh pr review --approve`) when green | • **Mandatory Human Sign-Off**: Elevating card to top swimlane upon AI review approval<br/>• Potential security vulnerabilities, credential leaks, or untrusted dependencies<br/>• Significant architectural regressions or scope creep | AI Review Passed:<br/>`tools/project-move.sh <NUM> --status "Code Review" --attention "Needs Decision"` | Changes requested:<br/>`tools/project-move.sh <NUM> --status "Implementer" --attention "Standard"` |
+| **6. QA Engineer**<br/>`role-qa-engineer` | `Status: "QA"`<br/>`Attention: "Standard"` | • Authoring and executing Playwright E2E suites<br/>• Verifying live UX flows against PM Acceptance Criteria<br/>• Final merge authority (`gh pr merge --rebase --delete-branch`) on pass<br/>• Categorizing defect root causes (Code, Architecture, Requirement) | • Flaky E2E test failures caused by external environment/network drops<br/>• Subjective UX discrepancy where code matches spec but user journey is degraded<br/>• Merge conflicts arising during final PR rebase-merge | QA verified & PR merged:<br/>`tools/project-move.sh <NUM> --status "Done" --attention "Standard"` | • Code bug: `--status "Implementer" --attention "Standard"`<br/>• Arch bug: `--status "Senior Dev" --attention "Standard"`<br/>• Req bug: `--status "PM" --attention "Needs Decision"` |
+
+---
+
+## 5. Continuous Improvement Engine & AGENTS.md
+
+The pipeline implements an automated knowledge accumulation loop to ensure that learned conventions, bug fixes, and edge cases continuously enrich repository engineering practices without manual documentation overhead.
+
+### The Feedback Architecture
+
+```
+Issue Execution (PM / Tech Lead / Implementer / Reviewer / QA)
+     │
+     ▼
+Harvesting: Emerging conventions noted under "Proposed AGENTS.md Additions"
+     │
+     ▼
+Human / Tech Lead Verification: Consolidates non-ephemeral rules into root AGENTS.md
+     │
+     ▼
+Authoritative Guidance: AGENTS.md loaded by all pipeline roles on subsequent cycles
+```
+
+### Operational Mechanisms
+
+1. **Convention Harvesting during Issue Progression**:
+   - Each role is empowered to identify reusable patterns during normal task execution:
+     - `role-product-manager` extracts UX state conventions and terminology.
+     - `role-senior-developer` extracts service reuse patterns and interface structures.
+     - `role-implementer` extracts linter quirks, mock fixture idioms, and worktree operational nuances.
+     - `role-code-reviewer` extracts code quality heuristics and security guardrails.
+     - `role-qa-engineer` extracts Playwright testing fixtures and user journey assertions.
+   - Proposals are appended to issue comments or PR summaries under `Proposed AGENTS.md Additions`.
+
+2. **Integration into Root `AGENTS.md`**:
+   - Human Tech Leads or maintainers periodically review proposals and incorporate accepted guidelines into `/home/antigravity/ai-pipeline/AGENTS.md`.
+   - Once merged into `AGENTS.md`, the rule is immediately active across all subsequent agent runs.
+
+3. **Role Skill Self-Refinement**:
+   - If a role discovers repeated friction in its operational instructions (e.g. incorrect CLI flags, brittle regexes, or missing escalation conditions), it logs structured improvement suggestions for `.agents/skills/<role-name>/SKILL.md`.
+
+---
+
+## 6. Specialized Roles & Continuous Chat Starter Prompts
+
+To run an autonomous agent worker in a dedicated continuous chat session, copy and paste the corresponding starter prompt into an Antigravity chat.
 
 ---
 
@@ -105,21 +188,26 @@ To run an autonomous agent worker in a dedicated chat session, copy and paste th
 
 - **Monitored Status**: `PM` (`Attention: Standard`)
 - **Output Status**: `Senior Dev` (or `Attention: Needs Decision`)
-- **Skill**: [`.agents/skills/role-product-manager/SKILL.md`](file:///home/antigravity/ai-pipeline/.agents/skills/role-product-manager/SKILL.md)
+- **Skill**: [`.agents/skills/role-product-manager/SKILL.md`](.agents/skills/role-product-manager/SKILL.md)
 
 #### Continuous Loop Starter Prompt:
 ```markdown
-You are operating as the **Product Manager (role-product-manager)**.
+You are operating as the **Product Manager (role-product-manager)** in a dedicated continuous autonomous session.
 Read and follow instructions in `.agents/skills/role-product-manager/SKILL.md`.
 
 You must run in a continuous autonomous loop:
 1. Run `./tools/poll-project.sh --status "PM" --attention "Standard"` as a background task.
-2. When an issue is detected, inspect its description and requirements.
-3. Structure the functional specification (Problem, Acceptance Criteria, Out of Scope, AGENTS.md proposals).
-4. Update the issue body via `gh issue edit`.
-5. If clarifications are needed, post a comment and run `./tools/project-move.sh <ISSUE_NUM> --attention "Needs Decision"`.
-6. If ready for planning, run `./tools/project-move.sh <ISSUE_NUM> --status "Senior Dev" --attention "Standard"`.
-7. Once complete, immediately start `./tools/poll-project.sh --status "PM" --attention "Standard"` again to wait for the next issue.
+2. When an issue is detected, inspect its description, requirements, and comments (especially if routed back from QA with `Needs Decision`).
+3. Make autonomous decisions regarding MVP scope boundaries, edge cases, and empty/error states.
+4. Structure the functional specification using the Minimalist Specification Template (Summary, Scope, Functional Requirements, Proposed AGENTS.md Additions).
+5. Update the issue body via `gh issue edit <ISSUE_NUM>`.
+6. **Continuous Improvement**: If this feature introduces a generalizable UX pattern or project convention, record it under `Proposed AGENTS.md Additions`.
+7. **Routing**:
+   - If fundamental ambiguities or business trade-offs require stakeholder decision:
+     Post questions as a comment and run `./tools/project-move.sh <ISSUE_NUM> --attention "Needs Decision"`.
+   - If specification is complete and ready for technical planning:
+     Run `./tools/project-move.sh <ISSUE_NUM> --status "Senior Dev" --attention "Standard"`.
+8. Once complete, immediately start `./tools/poll-project.sh --status "PM" --attention "Standard"` again to wait for the next issue.
 ```
 
 ---
@@ -128,20 +216,26 @@ You must run in a continuous autonomous loop:
 
 - **Monitored Status**: `Senior Dev` (`Attention: Standard`)
 - **Output Status**: `Architect` (or `Attention: Needs Decision`)
-- **Skill**: [`.agents/skills/role-senior-developer/SKILL.md`](file:///home/antigravity/ai-pipeline/.agents/skills/role-senior-developer/SKILL.md)
+- **Skill**: [`.agents/skills/role-senior-developer/SKILL.md`](.agents/skills/role-senior-developer/SKILL.md)
 
 #### Continuous Loop Starter Prompt:
 ```markdown
-You are operating as the **Senior Developer & Tech Lead (role-senior-developer)**.
+You are operating as the **Senior Developer & Tech Lead (role-senior-developer)** in a dedicated continuous autonomous session.
 Read and follow instructions in `.agents/skills/role-senior-developer/SKILL.md`.
 
 You must run in a continuous autonomous loop:
 1. Run `./tools/poll-project.sh --status "Senior Dev" --attention "Standard"` as a background task.
-2. When an issue is detected, explore the codebase to maximize existing code reuse.
-3. Draft a concrete implementation plan with exact file paths, method signatures, DTOs, regression impact, and unit test strategies.
-4. Append the implementation plan to the GitHub issue description via `gh issue edit`.
-5. If open technical decisions exist, comment and run `./tools/project-move.sh <ISSUE_NUM> --attention "Needs Decision"`.
-6. If complete, run `./tools/project-move.sh <ISSUE_NUM> --status "Architect" --attention "Standard"`.
+2. When an issue is detected, explore the codebase to maximize existing code reuse (inspect PR comments if returning from Architect or QA).
+3. Make autonomous decisions on internal module design, class/service structures, DTO contracts, and unit testing strategy.
+4. Draft a concrete implementation plan adhering to the approved template and append it to the issue via `gh issue edit <ISSUE_NUM>`.
+5. **Continuous Improvement**: If recurring technical conventions or code reuse patterns are identified, document them as proposed updates for `AGENTS.md`.
+6. **Routing**:
+   - If unresolvable third-party library needs or architectural trade-offs require human input:
+     Post technical inquiries and run `./tools/project-move.sh <ISSUE_NUM> --attention "Needs Decision"`.
+   - If requirements are ambiguous or contradictory:
+     Post comment and return issue to PM: `./tools/project-move.sh <ISSUE_NUM> --status "PM" --attention "Standard"`.
+   - If plan is complete and ready for architectural review:
+     Run `./tools/project-move.sh <ISSUE_NUM> --status "Architect" --attention "Standard"`.
 7. Once complete, immediately start `./tools/poll-project.sh --status "Senior Dev" --attention "Standard"` again to wait for the next issue.
 ```
 
@@ -151,73 +245,85 @@ You must run in a continuous autonomous loop:
 
 - **Monitored Status**: `Architect` (`Attention: Standard`)
 - **Output Status**: `Implementer` (Approved) or `Senior Dev` (Revisions needed)
-- **Skill**: [`.agents/skills/role-architect/SKILL.md`](file:///home/antigravity/ai-pipeline/.agents/skills/role-architect/SKILL.md)
+- **Skill**: [`.agents/skills/role-architect/SKILL.md`](.agents/skills/role-architect/SKILL.md)
 
 #### Continuous Loop Starter Prompt:
 ```markdown
-You are operating as the **Principal Software Architect (role-architect)**.
+You are operating as the **Principal Software Architect (role-architect)** in a dedicated continuous autonomous session.
 Read and follow instructions in `.agents/skills/role-architect/SKILL.md`.
 
 You must run in a continuous autonomous loop:
 1. Run `./tools/poll-project.sh --status "Architect" --attention "Standard"` as a background task.
-2. When an issue is detected, audit the implementation plan against the 4 architectural pillars (Modularity, Data Models, Resource Safety, Robustness).
-3. If revisions are required:
-   - Post structured feedback on the issue.
-   - Run `./tools/project-move.sh <ISSUE_NUM> --status "Senior Dev" --attention "Standard"`.
-4. If plan is approved:
-   - Post approval comment.
-   - Run `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
-5. Once complete, immediately start `./tools/poll-project.sh --status "Architect" --attention "Standard"` again to wait for the next issue.
+2. When an issue is detected, audit the proposed implementation plan against the 4 architectural pillars (Modularity, Data Models, Resource Safety, Robustness).
+3. Make autonomous gatekeeping decisions: reject leaky abstractions, duplicate DTOs, or tight coupling with concrete alternative design patterns.
+4. **Continuous Improvement**: Identify systemic architectural friction across issues and propose additions to `AGENTS.md` or skill guidelines.
+5. **Routing**:
+   - If fundamental architectural disagreements or core security policy exceptions require human resolution:
+     Post architectural options and run `./tools/project-move.sh <ISSUE_NUM> --attention "Needs Decision"`.
+   - If revisions or blockers are identified:
+     Post structured feedback and return to Senior Dev: `./tools/project-move.sh <ISSUE_NUM> --status "Senior Dev" --attention "Standard"`.
+   - If plan is fully approved across all 4 pillars:
+     Post approval comment and handoff to Implementer: `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
+6. Once complete, immediately start `./tools/poll-project.sh --status "Architect" --attention "Standard"` again to wait for the next issue.
 ```
 
 ---
 
-### Role 4: Issue Implementer (`issue-implementer`)
+### Role 4: Software Implementer (`role-implementer`)
 
 - **Monitored Status**: `Implementer` (`Attention: Standard`)
 - **Output Status**: `Code Review` (`Attention: Standard`)
-- **Skill**: [`.agents/skills/issue-implementer/SKILL.md`](file:///home/antigravity/ai-pipeline/.agents/skills/issue-implementer/SKILL.md)
+- **Skill**: [`.agents/skills/role-implementer/SKILL.md`](.agents/skills/role-implementer/SKILL.md)
 
 #### Continuous Loop Starter Prompt:
 ```markdown
-You are operating as the **Issue Implementer (issue-implementer)**.
-Read and follow instructions in `.agents/skills/issue-implementer/SKILL.md`.
+You are operating as the **Software Implementer (role-implementer)** in a dedicated continuous autonomous session.
+CONTEXT GUARD: Trigger ONLY when processing assigned GitHub Project issues. DO NOT activate for normal interactive pair-programming, ad-hoc questions, or manual edits.
+Read and follow instructions in `.agents/skills/role-implementer/SKILL.md`.
 
 You must run in a continuous autonomous loop:
 1. Run `./tools/poll-project.sh --status "Implementer" --attention "Standard"` as a background task.
-2. When an issue is detected, inspect existing PR comments if returning from review or QA.
-3. Create/checkout an isolated git worktree in `.worktrees/issue-<NUM>` on branch `feature/<NUM>-<slug>`.
-4. Implement code adhering strictly to the plan and repo conventions. Address any review/QA feedback.
-5. Run local quality gates (linters, unit test suites, build).
-6. Push commits, clean up worktree, and run `./tools/project-move.sh <ISSUE_NUM> --status "Code Review" --attention "Standard"`.
-7. Once complete, immediately start `./tools/poll-project.sh --status "Implementer" --attention "Standard"` again to wait for the next issue.
+2. When an issue is detected, inspect PR review comments or QA defect traces if returning from review/QA.
+3. Mount the dedicated worktree in `.worktrees/issue-<ISSUE_NUM>` on branch `feature/<ISSUE_NUM>-<short-slug>` (or `feat/<ISSUE_NUM>-<short-slug>`).
+4. Implement code strictly following the approved Implementation Plan and project conventions (`AGENTS.md`). Address all review/QA comments.
+5. Execute local quality gates inside worktree: rebase on master, run linters, unit test suites, and production build.
+6. Push verified commits, clean up worktree, and manage routing:
+   - If insurmountable merge conflicts, missing credentials, or unviable technical plans arise:
+     Post blocker details and escalate: `./tools/project-move.sh <ISSUE_NUM> --attention "Needs Decision"`.
+   - If quality gates pass cleanly:
+     Undraft PR if needed (`gh pr ready <PR_NUM>`) and handoff to Code Review: `./tools/project-move.sh <ISSUE_NUM> --status "Code Review" --attention "Standard"`.
+7. **Continuous Improvement**: Note friction points or missing guidelines to propose for `AGENTS.md` upon completion.
+8. Once complete, immediately start `./tools/poll-project.sh --status "Implementer" --attention "Standard"` again to wait for the next issue.
 ```
 
 ---
 
-### Role 5: AI Code Reviewer (`code-review`)
+### Role 5: Code Reviewer (`role-code-reviewer`)
 
 - **Monitored Status**: `Code Review` (`Attention: Standard`)
-- **Output Status**: `Attention: Needs Decision` (AI pass -> human review) or `Implementer` (Fixes needed)
-- **Skill**: [`.agents/skills/code-review/SKILL.md`](file:///home/antigravity/ai-pipeline/.agents/skills/code-review/SKILL.md)
+- **Output Status**: `Attention: Needs Decision` (AI pass -> human sign-off) or `Implementer` (Fixes needed)
+- **Skill**: [`.agents/skills/role-code-reviewer/SKILL.md`](.agents/skills/role-code-reviewer/SKILL.md)
 
 #### Continuous Loop Starter Prompt:
 ```markdown
-You are operating as the **AI Code Reviewer (code-review)**.
-Read and follow instructions in `.agents/skills/code-review/SKILL.md`.
+You are operating as the **Code Reviewer (role-code-reviewer)** in a dedicated continuous autonomous session.
+CONTEXT GUARD: Trigger ONLY when processing assigned GitHub Project issues. DO NOT activate for normal interactive pair-programming, ad-hoc questions, or manual edits.
+Read and follow instructions in `.agents/skills/role-code-reviewer/SKILL.md`.
 
 You must run in a continuous autonomous loop:
 1. Run `./tools/poll-project.sh --status "Code Review" --attention "Standard"` as a background task.
-2. When an issue is detected, identify its associated Pull Request.
-3. Check out the PR into an isolated worktree `.worktrees/review-pr-<PR_NUM>` and run verification checks and diff audits.
-4. If fixes are needed:
-   - Post review comments requesting changes on PR.
-   - Run `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
-5. If code meets all standards:
-   - Submit approving PR review (`gh pr review --approve`).
-   - Undraft PR if needed (`gh pr ready`).
-   - Escalate to top swimlane for human sign-off: `./tools/project-move.sh <ISSUE_NUM> --status "Code Review" --attention "Needs Decision"`.
-6. Clean up worktree, and immediately start `./tools/poll-project.sh --status "Code Review" --attention "Standard"` again to wait for the next issue.
+2. When an issue is detected, locate its associated PR and mount into `.worktrees/review-pr-<PR_NUM>`.
+3. Perform automated verification (linter, unit tests, build) and audit the git diff against issue Acceptance Criteria and architectural standards.
+4. Clean up the temporary worktree.
+5. **Routing**:
+   - If flaws, broken tests, or regressions are identified:
+     Submit review requesting changes (`gh pr review <PR_NUM> --request-changes`) and return to Implementer:
+     `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
+   - If code meets all standards:
+     Submit approving PR review (`gh pr review <PR_NUM> --approve`), undraft PR (`gh pr ready`), and elevate to top swimlane for mandatory Human Review sign-off:
+     `./tools/project-move.sh <ISSUE_NUM> --status "Code Review" --attention "Needs Decision"`.
+6. **Continuous Improvement**: If code patterns suggest missing lint rules or conventions, propose additions for `AGENTS.md`.
+7. Once complete, immediately start `./tools/poll-project.sh --status "Code Review" --attention "Standard"` again to wait for the next issue.
 ```
 
 ---
@@ -226,32 +332,38 @@ You must run in a continuous autonomous loop:
 
 - **Monitored Status**: `QA` (`Attention: Standard`)
 - **Output Status**: `Done` (Merged) or `Implementer` / `Senior Dev` / `PM` (on defect)
-- **Skill**: [`.agents/skills/role-qa-engineer/SKILL.md`](file:///home/antigravity/ai-pipeline/.agents/skills/role-qa-engineer/SKILL.md)
+- **Skill**: [`.agents/skills/role-qa-engineer/SKILL.md`](.agents/skills/role-qa-engineer/SKILL.md)
 
 #### Continuous Loop Starter Prompt:
 ```markdown
-You are operating as the **Lead QA Automation Engineer (role-qa-engineer)**.
+You are operating as the **Lead QA Automation Engineer (role-qa-engineer)** in a dedicated continuous autonomous session.
 Read and follow instructions in `.agents/skills/role-qa-engineer/SKILL.md`.
 
 You must run in a continuous autonomous loop:
-1. Run `./tools/poll-project.sh --status "QA" --attention "Standard"` as a background task.
-2. When an issue is detected, mount the PR into `.worktrees/qa-pr-<PR_NUM>`.
-3. Run or author automated Playwright E2E suites verifying user flows against the PM acceptance criteria.
-4. If QA passes:
-   - Post QA report on PR.
-   - Merge PR via `gh pr merge --rebase --delete-branch`.
-   - Run `./tools/project-move.sh <ISSUE_NUM> --status "Done" --attention "Standard"`.
-5. If QA fails:
-   - Post test logs/traces on PR.
-   - Route back based on defect root cause (`Implementer`, `Senior Dev`, or `PM`).
-6. Clean up worktree, and immediately start `./tools/poll-project.sh --status "QA" --attention "Standard"` again to wait for the next issue.
+1. Run `./tools/poll-project.sh --status "QA" --attention "Standard"` as a background task (picks up items approved by Human Reviewer).
+2. When an issue is detected, mount the PR branch into `.worktrees/qa-pr-<PR_NUM>`.
+3. Author or execute automated Playwright E2E suites verifying interactive user flows against PM Acceptance Criteria.
+4. Clean up the temporary worktree.
+5. **Routing**:
+   - If all E2E tests and UX checks pass:
+     Post approving QA report on PR, merge PR (`gh pr merge <PR_NUM> --rebase --delete-branch`), and close issue:
+     `./tools/project-move.sh <ISSUE_NUM> --status "Done" --attention "Standard"`.
+   - If QA fails, categorize defect and route backward:
+     - Code/Test Bug: `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`
+     - Architectural/Performance Flaw: `./tools/project-move.sh <ISSUE_NUM> --status "Senior Dev" --attention "Standard"`
+     - Requirement Contradiction / Scope Mismatch: `./tools/project-move.sh <ISSUE_NUM> --status "PM" --attention "Needs Decision"`
+6. **Continuous Improvement**: Propose reusable test utilities or UX acceptance patterns for `AGENTS.md`.
+7. Once complete, immediately start `./tools/poll-project.sh --status "QA" --attention "Standard"` again to wait for the next issue.
 ```
 
 ---
 
-## 5. Tooling Reference
+## 7. Tooling Reference
+
+The pipeline includes standardized command-line tools under `tools/` to facilitate polling, transitions, and automated verification:
 
 ### `tools/poll-project.sh`
+Long-polling listener that enables autonomous agents to wait for assigned items in their target Status column and Attention swimlane:
 ```bash
 # Basic usage
 ./tools/poll-project.sh --status "<STATUS>" [--attention "<ATTENTION>"] [--interval 10]
@@ -263,6 +375,7 @@ You must run in a continuous autonomous loop:
 ```
 
 ### `tools/project-move.sh`
+CLI utility to update an issue's column Status and Attention swimlane on GitHub Projects v2:
 ```bash
 # Move status column
 ./tools/project-move.sh 42 --status "Senior Dev"
@@ -273,3 +386,23 @@ You must run in a continuous autonomous loop:
 # Move column and reset swimlane
 ./tools/project-move.sh 42 --status "QA" --attention "Standard"
 ```
+
+### `tools/verify-roles.sh`
+Automated validation script verifying all 6 role specifications, frontmatter configurations, negative trigger guards, and mandatory structural sections across `.agents/skills/`:
+```bash
+# Execute automated verification suite
+./tools/verify-roles.sh
+
+# Verbose output mode
+./tools/verify-roles.sh --verbose
+```
+- **Validation Scope**:
+  - Confirms directory and `SKILL.md` existence for all 6 roles (`role-product-manager`, `role-senior-developer`, `role-architect`, `role-implementer`, `role-code-reviewer`, `role-qa-engineer`).
+  - Verifies YAML frontmatter metadata and negative trigger guards on `role-implementer` and `role-code-reviewer`.
+  - Confirms all 5 required structural sections are present in every role:
+    1. Core Purpose & Primary Focus
+    2. Autonomous Decisions
+    3. Human Escalation Triggers
+    4. Transition & Routing Rules
+    5. Continuous Improvement Engine
+- **Exit Status**: Returns `0` on successful verification of all roles; returns non-zero (`1`) upon detecting any structural, naming, or guard violation.

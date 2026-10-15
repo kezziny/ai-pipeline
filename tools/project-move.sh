@@ -17,8 +17,8 @@ Examples:
   tools/project-move.sh 42 --status "Architect" --attention "Standard"
 
 Options:
-  -s, --status      Target column name (e.g. "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA", "Done")
-  -a, --attention   Target attention name (e.g. "Standard", "Needs Decision")
+  -s, --status      Target column name (e.g. "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA", "Done" or role aliases like "role-implementer")
+  -a, --attention   Target attention name (e.g. "Standard", "Needs Decision", supports aliases like "needs-decision")
   -p, --project     Project number (default from .project-config.json or $GH_PROJECT_NUMBER)
   -o, --owner       Project owner (default from .project-config.json or $GH_PROJECT_OWNER)
   -h, --help        Show this help message
@@ -147,8 +147,49 @@ except Exception as e:
 
 status_field_id = None
 status_option_id = None
+status_option_name = None
 attention_field_id = None
 attention_option_id = None
+attention_option_name = None
+
+STATUS_ALIASES = {
+    "role-product-manager": "pm",
+    "product-manager": "pm",
+    "product manager": "pm",
+    "pm": "pm",
+    "role-senior-developer": "senior dev",
+    "senior-developer": "senior dev",
+    "senior developer": "senior dev",
+    "senior-dev": "senior dev",
+    "senior dev": "senior dev",
+    "role-architect": "architect",
+    "architect": "architect",
+    "role-implementer": "implementer",
+    "issue-implementer": "implementer",
+    "implementer": "implementer",
+    "role-code-reviewer": "code review",
+    "code-reviewer": "code review",
+    "code reviewer": "code review",
+    "code-review": "code review",
+    "code review": "code review",
+    "role-qa-engineer": "qa",
+    "qa-engineer": "qa",
+    "qa engineer": "qa",
+    "qa": "qa",
+    "done": "done",
+    "backlog": "backlog",
+}
+
+ATTENTION_ALIASES = {
+    "standard": "standard",
+    "needs decision": "needs decision",
+    "needs-decision": "needs decision",
+    "needs_decision": "needs decision",
+    "decision": "needs decision",
+}
+
+target_status_norm = STATUS_ALIASES.get(target_status.lower(), target_status.lower()) if target_status else ""
+target_att_norm = ATTENTION_ALIASES.get(target_attention.lower(), target_attention.lower()) if target_attention else ""
 
 for f in fields:
     fname = f.get("name", "").strip().lower()
@@ -157,15 +198,21 @@ for f in fields:
         status_field_id = f.get("id")
         if target_status:
             for opt in options:
-                if opt.get("name", "").strip().lower() == target_status.lower():
+                opt_name = opt.get("name", "").strip()
+                opt_norm = STATUS_ALIASES.get(opt_name.lower(), opt_name.lower())
+                if opt_name.lower() == target_status.lower() or opt_norm == target_status_norm:
                     status_option_id = opt.get("id")
+                    status_option_name = opt_name
                     break
     elif fname == attention_field_name or fname == "attention":
         attention_field_id = f.get("id")
         if target_attention:
             for opt in options:
-                if opt.get("name", "").strip().lower() == target_attention.lower():
+                opt_name = opt.get("name", "").strip()
+                opt_norm = ATTENTION_ALIASES.get(opt_name.lower(), opt_name.lower())
+                if opt_name.lower() == target_attention.lower() or opt_norm == target_att_norm:
                     attention_option_id = opt.get("id")
+                    attention_option_name = opt_name
                     break
 
 if target_status and not status_option_id:
@@ -206,7 +253,7 @@ if target_status and status_field_id and status_option_id:
         "--single-select-option-id", status_option_id
     ]
     subprocess.run(cmd, check=True)
-    updated.append(f"Status -> '{target_status}'")
+    updated.append(f"Status -> '{status_option_name or target_status}'")
 
 if target_attention and attention_field_id and attention_option_id:
     cmd = [
@@ -217,7 +264,7 @@ if target_attention and attention_field_id and attention_option_id:
         "--single-select-option-id", attention_option_id
     ]
     subprocess.run(cmd, check=True)
-    updated.append(f"Attention -> '{target_attention}'")
+    updated.append(f"Attention -> '{attention_option_name or target_attention}'")
 
 print(f"[project-move] Issue #{target_ref} (item {item_id}): " + ", ".join(updated))
 PYEOF
