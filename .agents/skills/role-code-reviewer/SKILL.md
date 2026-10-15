@@ -107,9 +107,13 @@ WORKTREE_DIR=".worktrees/review-pr-<PR_NUMBER>"
 git fetch origin <branch-name>
 git worktree add "$WORKTREE_DIR" <branch-name>
 
-# Inspect git diff against origin/master
 cd "$WORKTREE_DIR"
-git diff origin/master
+
+# Token Conservation: Check diff stat first to gauge modified files (~150 tokens)
+git diff --stat origin/master
+
+# Inspect code changes, excluding machine-generated lockfiles and build bundles
+git diff origin/master -- . ':!*-lock.json' ':!*.lock' ':!dist/*' ':!build/*'
 cd -
 ```
 

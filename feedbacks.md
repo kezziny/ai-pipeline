@@ -161,6 +161,43 @@ This document aggregates architectural refinements, role enhancements, and workf
 
 ---
 
+## 6. Token Conservation & Cost Optimization
+
+### FB-11: Zero-Token Script Gatekeeper (`poll-project.sh --auto-bounce-ci`)
+- **Problem**: Reviewer and QA subagents wake up via poller just to inspect failing remote PR checks and immediately bounce to Implementer, burning thousands of LLM input tokens on useless turns.
+- **Proposed Solution**:
+  - Add `--auto-bounce-ci` to `tools/poll-project.sh`.
+  - When polling for review/QA, poller checks `gh pr checks` in pure bash before exiting.
+  - If checks are failing, poller auto-comments failure on the PR, moves card back to `Implementer`, and continues polling.
+  - 0 LLM tokens burned on broken PRs.
+- **Affected Components**: `tools/poll-project.sh`, `README.md`, `instruction.md`
+
+### FB-12: Silent Command Execution for Implementer
+- **Problem**: Running unit tests and linters dumps thousands of tokens of passing logs into model context.
+- **Proposed Solution**:
+  - Run tests and linters in quiet mode: `npm test -- --silent > /dev/null 2>&1 || npm test -- --onlyFailures`.
+  - Passing runs output 0 tokens; failures capture only failing assertions.
+- **Affected Components**: `.agents/skills/role-implementer/SKILL.md`, `instruction.md`
+
+### FB-13: Diff Windowing & Lockfile Exclusions for Reviewer
+- **Problem**: Full `git diff origin/master` dumps thousands of tokens of unchanged context and massive machine-generated lockfiles into model context.
+- **Proposed Solution**:
+  - Reviewer surveys `git diff --stat origin/master` first (~150 tokens).
+  - Reviewer inspects diff with lockfile exclusions: `git diff origin/master -- . ':!*-lock.json' ':!*.lock'`.
+- **Affected Components**: `.agents/skills/role-code-reviewer/SKILL.md`, `instruction.md`
+
+### FB-14: Compact Match Banner (`poll-project.sh --compact`)
+- **Problem**: Default poller match output prints an 8-line banner into subagent transcript on every wakeup.
+- **Proposed Solution**: Add `--compact` (`-q`) flag printing a single-line match summary: `[poll-project] MATCH: #42 "Title" (Status: PM, ID: PVTI_...)`.
+- **Affected Components**: `tools/poll-project.sh`, `README.md`, `instruction.md`
+
+### FB-15: Session Context Hygiene & Reset Architecture
+- **Problem**: Long-running subagents accumulate context across multiple issues; issue #3 re-sends #1 and #2 history on every turn.
+- **Proposed Solution**: Document context management in `instruction.md`: run `/compact` after an issue finishes, or orchestrate fresh subagents per issue.
+- **Affected Components**: `instruction.md`
+
+---
+
 ## Batch Implementation Tracker
 
 | ID | Title | Priority | Status |
@@ -175,6 +212,12 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-08** | PM High-Level Focus (Strict ban on file paths and technical implementation) | High | ✅ Implemented |
 | **FB-09** | PM Synchronizes Issue Title with Feature Name (`gh issue edit --title`) | Medium | ✅ Implemented |
 | **FB-10** | Architect AGENTS.md Proposals (Guardrails codified in approval comment) | Medium | ✅ Implemented |
+| **FB-11** | Zero-Token Script Gatekeeper (`poll-project.sh --auto-bounce-ci`) | High | ✅ Implemented |
+| **FB-12** | Silent Command Execution (`pass = 0 tokens`) for Implementer | High | ✅ Implemented |
+| **FB-13** | Diff Windowing & Lockfile Exclusions for Code Reviewer | Medium | ✅ Implemented |
+| **FB-14** | Compact Match Banner (`poll-project.sh --compact`) | Medium | ✅ Implemented |
+| **FB-15** | Session Context Hygiene & Reset Architecture (`instruction.md`) | High | ✅ Implemented |
+
 
 
 

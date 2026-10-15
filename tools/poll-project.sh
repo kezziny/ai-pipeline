@@ -21,13 +21,15 @@ Usage:
   tools/poll-project.sh "<STATUS>" [INTERVAL_SECONDS]
 
 Options:
-  -s, --status      Target column/status (e.g. "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA", "Done" or role aliases like "role-implementer")
-  -a, --attention   Target attention swimlane (default: "Standard", supports aliases like "needs-decision")
-  -i, --interval    Polling interval in seconds (default: 30)
-  -c, --cache-ttl   Cache TTL in seconds (default: 25)
-  -p, --project     Project number (default from .project-config.json or $GH_PROJECT_NUMBER)
-  -o, --owner       Project owner (default from .project-config.json or $GH_PROJECT_OWNER)
-  -h, --help        Show this help message
+  -s, --status            Target column/status (e.g. "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA", "Done" or role aliases like "role-implementer")
+  -a, --attention         Target attention swimlane (default: "Standard", supports aliases like "needs-decision")
+  -i, --interval          Polling interval in seconds (default: 30)
+  -c, --cache-ttl         Cache TTL in seconds (default: 25)
+  -p, --project           Project number (default from .project-config.json or $GH_PROJECT_NUMBER)
+  -o, --owner             Project owner (default from .project-config.json or $GH_PROJECT_OWNER)
+  -q, --compact           Compact single-line match banner (saves LLM tokens)
+  --auto-bounce-ci        Auto-bounce issue to Implementer if PR checks are failing (zero-token gatekeeper)
+  -h, --help              Show this help message
 EOF
   exit "${1:-0}"
 }
@@ -44,6 +46,8 @@ PROJECT_NUMBER=""
 PROJECT_OWNER=""
 STATUS_FIELD="Status"
 ATTENTION_FIELD="Attention"
+COMPACT=0
+AUTO_BOUNCE_CI=0
 
 # Load defaults from config file if available
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -94,6 +98,14 @@ while [[ $# -gt 0 ]]; do
     -o|--owner)
       PROJECT_OWNER="$2"
       shift 2
+      ;;
+    -q|--compact)
+      COMPACT=1
+      shift
+      ;;
+    --auto-bounce-ci)
+      AUTO_BOUNCE_CI=1
+      shift
       ;;
     *)
       if [[ -z "$TARGET_STATUS" ]]; then
@@ -291,14 +303,42 @@ PYEOF
     ISSUE_URL=$(echo "$FOUND" | cut -f3)
     ITEM_ID=$(echo "$FOUND" | cut -f4)
 
-    echo ""
-    echo "[poll-project] MATCH FOUND!"
-    echo "  Issue   : #${ISSUE_NUM} - ${ISSUE_TITLE}"
-    echo "  Status  : ${TARGET_STATUS}"
-    echo "  Attention: ${TARGET_ATTENTION}"
-    echo "  Item ID : ${ITEM_ID}"
-    echo "  URL     : ${ISSUE_URL}"
-    echo ""
+    # Zero-Token Script Gatekeeper: Auto-bounce on red CI checks
+    if [[ "$AUTO_BOUNCE_CI" -eq 1 ]]; then
+      PR_JSON=$($GH_CMD pr list --search "${ISSUE_NUM}" --state open --json number,statusCheckRollup 2>/dev/null || true)
+      if [[ -n "$PR_JSON" && "$PR_JSON" != "[]" ]]; then
+        PR_NUM=$(python3 -c "import json, sys; d=json.loads(sys.argv[1]); print(d[0].get('number', '') if d else '')" "$PR_JSON" 2>/dev/null || true)
+        if [[ -n "$PR_NUM" ]]; then
+          CHECKS_OUTPUT=$($GH_CMD pr checks "$PR_NUM" 2>&1 || true)
+          if echo "$CHECKS_OUTPUT" | grep -qiE "(fail|error|cancel)"; then
+            echo "[poll-project] CI FAILURE DETECTED on PR #${PR_NUM} (Issue #${ISSUE_NUM}). Auto-bouncing to Implementer..."
+            $GH_CMD pr comment "$PR_NUM" --body "❌ Automated PR checks failed on CI. Bouncing issue back to Implementer:
+\`\`\`
+$(echo "$CHECKS_OUTPUT" | head -n 10)
+\`\`\`" >/dev/null 2>&1 || true
+            "${SCRIPT_DIR}/project-move.sh" "${ISSUE_NUM}" --status "Implementer" --attention "Standard" >/dev/null 2>&1 || true
+            # Invalidate items cache so next poll iteration detects state change
+            CACHE_FILE="/tmp/gh-project-cache-${PROJECT_OWNER}-${PROJECT_NUMBER}.json"
+            rm -f "$CACHE_FILE"
+            sleep "$POLL_INTERVAL"
+            continue
+          fi
+        fi
+      fi
+    fi
+
+    if [[ "$COMPACT" -eq 1 ]]; then
+      echo "[poll-project] MATCH: #${ISSUE_NUM} \"${ISSUE_TITLE}\" (Status: ${TARGET_STATUS}, ID: ${ITEM_ID})"
+    else
+      echo ""
+      echo "[poll-project] MATCH FOUND!"
+      echo "  Issue   : #${ISSUE_NUM} - ${ISSUE_TITLE}"
+      echo "  Status  : ${TARGET_STATUS}"
+      echo "  Attention: ${TARGET_ATTENTION}"
+      echo "  Item ID : ${ITEM_ID}"
+      echo "  URL     : ${ISSUE_URL}"
+      echo ""
+    fi
     exit 0
   fi
 

@@ -70,7 +70,8 @@ description: >-
    - Inspect all review comments, QA defect reports, or change requests.
    - Implement the requested fixes as new commits on the existing branch.
    - Reply directly to each review comment with a brief summary of how it was resolved.
-6. **Bot Identity**: All GitHub CLI operations run under `No Git Sherlock [bot]`.
+6. **Token-Sparing Silent Execution**: Run tests, linters, and builds in quiet mode. Passing commands output zero tokens into context; only failing assertions or errors are captured for debugging.
+7. **Bot Identity**: All GitHub CLI operations run under `No Git Sherlock [bot]`.
 
 ---
 
@@ -172,8 +173,14 @@ Inside `$WORKTREE_DIR`, run verification before handover:
    ```bash
    git fetch origin master && git rebase origin/master
    ```
-2. **Local Tests & Build**:
-   Execute repository test suites and build commands locally.
+2. **Local Tests & Build (Token-Sparing Quiet Mode)**:
+   Execute tests and linters in quiet mode to avoid dumping passing log lines into context:
+   ```bash
+   # Quiet test run (pass = 0 tokens; fail = error stack trace only)
+   npm test -- --silent > /dev/null 2>&1 || npm test -- --onlyFailures
+   npm run lint -- --quiet
+   npm run build > /dev/null 2>&1 || npm run build
+   ```
 3. **Push verified code**:
    ```bash
    git push origin "$BRANCH_NAME"

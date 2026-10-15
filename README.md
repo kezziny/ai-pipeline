@@ -315,10 +315,11 @@ CONTEXT GUARD: Trigger ONLY when processing assigned GitHub Project issues. DO N
 Read and follow instructions in `.agents/skills/role-code-reviewer/SKILL.md`.
 
 You must run in a continuous autonomous loop:
-1. Run `./tools/poll-project.sh --status "Code Review" --attention "Standard"` as a background task.
+1. Run `./tools/poll-project.sh --status "Code Review" --attention "Standard" --auto-bounce-ci --compact` as a background task.
 2. When an issue is detected, check remote PR status (`gh pr checks <PR_NUM>`). If red, immediately comment failing checks and return to Implementer without running tests locally:
    `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
 3. If PR checks are green, mount into `.worktrees/review-pr-<PR_NUM>` and audit the diff:
+   - Check `git diff --stat origin/master` first, then inspect source files (excluding lockfiles).
    - Spec fidelity: Verify implementation covers all PM acceptance criteria.
    - Code craftsmanship & DRY: Eliminate unnecessary duplication and ensure modular boundaries.
    - AGENTS.md additions: Validate that proposed repository conventions are captured in `AGENTS.md`.
@@ -331,7 +332,7 @@ You must run in a continuous autonomous loop:
      Submit approving PR review (`gh pr review <PR_NUM> --approve`), undraft PR (`gh pr ready`), and elevate to top swimlane for mandatory Human Review sign-off:
      `./tools/project-move.sh <ISSUE_NUM> --status "Code Review" --attention "Needs Decision"`.
 6. **Continuous Improvement**: If code patterns suggest missing lint rules or conventions, propose additions for `AGENTS.md`.
-7. Once complete, immediately start `./tools/poll-project.sh --status "Code Review" --attention "Standard"` again to wait for the next issue.
+7. Once complete, immediately start `./tools/poll-project.sh --status "Code Review" --attention "Standard" --auto-bounce-ci --compact` again to wait for the next issue.
 ```
 
 ---
@@ -348,7 +349,7 @@ You are operating as the **Lead QA Automation Engineer (role-qa-engineer)** in a
 Read and follow instructions in `.agents/skills/role-qa-engineer/SKILL.md`.
 
 You must run in a continuous autonomous loop:
-1. Run `./tools/poll-project.sh --status "QA" --attention "Standard"` as a background task (picks up items approved by Human Reviewer).
+1. Run `./tools/poll-project.sh --status "QA" --attention "Standard" --auto-bounce-ci --compact` as a background task (picks up items approved by Human Reviewer).
 2. When an issue is detected, check remote PR status (`gh pr checks <PR_NUM>`). If red, immediately reject back to Implementer:
    `./tools/project-move.sh <ISSUE_NUM> --status "Implementer" --attention "Standard"`.
 3. Mount the PR branch into `.worktrees/qa-pr-<PR_NUM>`.
@@ -377,14 +378,17 @@ The pipeline includes standardized command-line tools under `tools/` to facilita
 ### `tools/poll-project.sh`
 Long-polling listener that enables autonomous agents to wait for assigned items in their target Status column and Attention swimlane.
 Features **shared local caching** (`/tmp/gh-project-cache-<owner>-<num>.json` with 25s TTL and file-locking) so that all 6 concurrent agents share a single GraphQL query, reducing API load by 83%+. Includes automatic backoff if rate limits drop below 200 points:
+- `--compact` (`-q`): Outputs single-line match banner (`[poll-project] MATCH: #42...`) saving LLM context tokens.
+- `--auto-bounce-ci`: Zero-token script gatekeeper. Checks PR CI checks in pure bash; if failing, auto-comments failure on PR and bounces card back to `Implementer` without waking up the LLM.
+
 ```bash
 # Basic usage (default interval: 30s, default cache TTL: 25s)
-./tools/poll-project.sh --status "<STATUS>" [--attention "<ATTENTION>"] [--interval 30] [--cache-ttl 25]
+./tools/poll-project.sh --status "<STATUS>" [--attention "<ATTENTION>"] [--interval 30] [--cache-ttl 25] [--compact] [--auto-bounce-ci]
 
 # Examples
-./tools/poll-project.sh --status "PM" --attention "Standard"
-./tools/poll-project.sh --status "Code Review" --attention "Standard"
-./tools/poll-project.sh --status "QA" --attention "Standard"
+./tools/poll-project.sh --status "PM" --attention "Standard" --compact
+./tools/poll-project.sh --status "Code Review" --attention "Standard" --auto-bounce-ci --compact
+./tools/poll-project.sh --status "QA" --attention "Standard" --auto-bounce-ci --compact
 ```
 
 ### `tools/project-move.sh`
