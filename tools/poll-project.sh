@@ -197,9 +197,11 @@ def fetch_project_items():
                 except Exception:
                     pass
 
+            item_limit = os.environ.get("GH_PROJECT_ITEM_LIMIT", "100")
             cmd = [
                 gh_cmd, "project", "item-list", p_num,
                 "--owner", owner,
+                "--limit", item_limit,
                 "--format", "json"
             ]
             res = subprocess.run(cmd, capture_output=True, text=True)
@@ -303,12 +305,26 @@ PYEOF
     ISSUE_URL=$(echo "$FOUND" | cut -f3)
     ITEM_ID=$(echo "$FOUND" | cut -f4)
 
-    # Zero-Token Script Gatekeeper: Auto-bounce on red CI checks
+    # Zero-Token Script Gatekeeper: Auto-bounce on merge conflicts or red CI checks, wait on pending CI
     if [[ "$AUTO_BOUNCE_CI" -eq 1 ]]; then
-      PR_JSON=$($GH_CMD pr list --search "${ISSUE_NUM}" --state open --json number,statusCheckRollup 2>/dev/null || true)
+      PR_JSON=$($GH_CMD pr list --search "${ISSUE_NUM}" --state open --json number,mergeable,statusCheckRollup 2>/dev/null || true)
       if [[ -n "$PR_JSON" && "$PR_JSON" != "[]" ]]; then
-        PR_NUM=$(python3 -c "import json, sys; d=json.loads(sys.argv[1]); print(d[0].get('number', '') if d else '')" "$PR_JSON" 2>/dev/null || true)
+        PR_META=$(python3 -c "import json, sys; d=json.loads(sys.argv[1]); print(f\"{d[0].get('number', '')}\t{d[0].get('mergeable', '')}\" if d else '')" "$PR_JSON" 2>/dev/null || true)
+        PR_NUM=$(echo "$PR_META" | cut -f1)
+        PR_MERGEABLE=$(echo "$PR_META" | cut -f2)
         if [[ -n "$PR_NUM" ]]; then
+          # 1. Zero-Token Merge Conflict Gatekeeper
+          if [[ "$PR_MERGEABLE" == "CONFLICTING" ]]; then
+            echo "[poll-project] MERGE CONFLICT DETECTED on PR #${PR_NUM} (Issue #${ISSUE_NUM}). Auto-bouncing to Implementer..."
+            $GH_CMD pr comment "$PR_NUM" --body "❌ Merge conflict with base branch detected (\`mergeable: CONFLICTING\`). Bouncing issue back to Implementer to rebase onto latest \`origin/master\`." >/dev/null 2>&1 || true
+            "${SCRIPT_DIR}/project-move.sh" "${ISSUE_NUM}" --status "Implementer" --attention "Standard" >/dev/null 2>&1 || true
+            CACHE_FILE="/tmp/gh-project-cache-${PROJECT_OWNER}-${PROJECT_NUMBER}.json"
+            rm -f "$CACHE_FILE"
+            sleep "$POLL_INTERVAL"
+            continue
+          fi
+
+          # 2. CI Checks Gatekeeper (Auto-bounce on failure, wait on pending)
           CHECKS_OUTPUT=$($GH_CMD pr checks "$PR_NUM" 2>&1 || true)
           if echo "$CHECKS_OUTPUT" | grep -qiE "(fail|error|cancel)"; then
             echo "[poll-project] CI FAILURE DETECTED on PR #${PR_NUM} (Issue #${ISSUE_NUM}). Auto-bouncing to Implementer..."
@@ -320,6 +336,10 @@ $(echo "$CHECKS_OUTPUT" | head -n 10)
             # Invalidate items cache so next poll iteration detects state change
             CACHE_FILE="/tmp/gh-project-cache-${PROJECT_OWNER}-${PROJECT_NUMBER}.json"
             rm -f "$CACHE_FILE"
+            sleep "$POLL_INTERVAL"
+            continue
+          elif echo "$CHECKS_OUTPUT" | grep -qiE "(pending|in_progress|queued|waiting)"; then
+            echo "[poll-project] CI PENDING on PR #${PR_NUM} (Issue #${ISSUE_NUM}). Waiting for checks to finish before waking agent..."
             sleep "$POLL_INTERVAL"
             continue
           fi

@@ -23,8 +23,10 @@ description: >-
 | Category | Autonomous Authority | Boundaries & Limits |
 | :--- | :--- | :--- |
 | **Code Reuse & Architecture** | Selecting existing services, utilities, UI primitives, and DTOs to reuse or extend | Mandatory application of the Ponytail Reduction Ladder. Must exhaust existing codebase, standard library, and current dependencies before proposing new abstractions or packages |
+| **Anti-Hallucination Symbol Verification** | Verifying every modified file path, imported module, and reused method/DTO symbol against the live codebase using search tools | Strictly forbidden from referencing assumed, unverified, or non-existent file paths, functions, or interfaces in the plan |
 | **Method Signatures & Contracts** | Defining exact typed signatures, parameter structures, DTO interfaces, and HTTP status codes | Must maintain backward compatibility for existing consumers; no breaking public contracts |
 | **File Structure & Branching** | Determining exact files to create, modify, or delete, and naming the feature branch | Must follow project conventions (`feature/<issue-number>-<slug>`) and code layout |
+| **Trivial Issue Fast-Tracking (`[FAST-TRACK]`)** | Tagging trivial plans as `[FAST-TRACK]` and routing directly from `Senior Dev` to `Ready` (bypassing `Architect`) | Permitted ONLY when ALL 4 criteria hold: (1) $\le 2$ files modified, (2) 0 new dependencies, (3) 0 database schema/migration changes, and (4) 0 public API/DTO contract breaking changes |
 | **Database Migrations** | Specifying schema migrations using the Expand/Contract pattern with short lock timeouts | Prohibited from planning breaking single-step column renames or drops |
 | **Test Strategy & Fixtures** | Specifying unit test suites, test cases (happy path, edge cases, error states), and mock fixtures | Must define quality gates (linting, tests, build) required for downstream implementation |
 
@@ -40,7 +42,8 @@ description: >-
 ### Forward Transitions
 | Current Status | Prerequisite / Condition | Target Status | Attention | Action |
 | :--- | :--- | :--- | :--- | :--- |
-| `Senior Dev` | Technical plan complete, exact signatures/DTOs specified, test strategy defined, all technical questions resolved | `Architect` | `Standard` | `tools/project-move.sh <ID> --status "Architect" --attention "Standard"` |
+| `Senior Dev` | Standard technical plan complete, exact signatures/DTOs verified in codebase, test strategy defined | `Architect` | `Standard` | `tools/project-move.sh <ID> --status "Architect" --attention "Standard"` |
+| `Senior Dev` | `[FAST-TRACK]` plan complete ($\le 2$ files, 0 new deps, 0 schema changes, 0 breaking contract changes) | `Ready` | `Standard` | `tools/project-move.sh <ID> --status "Ready" --attention "Standard"` |
 
 ### Backward Transitions & Defect Routing
 | Problem Condition | Target Status | Attention | Action |
@@ -62,8 +65,9 @@ description: >-
 ---
 
 ## Operating Principles
-1. **Pragmatic, Implementation-First Mindset**:
+1. **Pragmatic, Implementation-First Mindset & Anti-Hallucination Verification**:
    - Zero ambiguity for implementers. An implementer (or automated agent like `role-implementer`) must be able to follow the plan without guessing file paths, function signatures, DTO field names, or HTTP status codes.
+   - **Mandatory Live Symbol Verification**: Before listing any existing file path, class, method, or DTO in the `Implementation Plan`, explicitly verify its exact path and signature in the repository using search tools (`grep_search`, `find_by_name`, `view_file`). Never hallucinate or assume plausible-sounding helper methods or imports.
    - Provide concrete interfaces and method signatures, not hand-waving abstractions.
 2. **Anti-Overengineering & The Ponytail Reduction Ladder**:
    - The best code is the code you never wrote. Protect against gratuitous complexity, speculative abstractions, and dependency bloat.
@@ -108,20 +112,22 @@ When this command terminates with status `0`, an issue in the `Senior Dev` colum
 ## Planning Workflow
 ```mermaid
 flowchart TD
-    A["Issue in 'Senior Dev' column"] --> B["Step 1: Codebase Reconnaissance & Reuse Audit"]
+    A["Issue in 'Senior Dev' column"] --> B["Step 1: Codebase Reconnaissance & Live Symbol Verification"]
     B --> C["Step 2: Shared DTO & API Contract Design"]
     C --> D["Step 3: Concrete Backend & Frontend Method Design"]
     D --> E["Step 4: Regression Risk & Side-Effect Analysis"]
     E --> F["Step 5: Test Strategy & Mock Data Design"]
     F --> G{"Ambiguities / Missing Decisions?"}
     G -- "Yes" --> H["Post comment with questions<br/>Set Attention: 'Needs Decision'"]
-    G -- "No" --> I["Append plan to Issue description<br/>Move Status: 'Architect'"]
+    G -- "No" --> FT{"Meets [FAST-TRACK] Criteria?<br/>(<=2 files, 0 deps, 0 schema, 0 breaking)"}
+    FT -- "Yes" --> J["Append [FAST-TRACK] plan to Issue<br/>Move Status: 'Ready'"]
+    FT -- "No" --> I["Append plan to Issue description<br/>Move Status: 'Architect'"]
 ```
 
-### Step 1: Codebase Reconnaissance & Code Reuse Audit
-- Search for existing components, controllers, and services related to the feature.
+### Step 1: Codebase Reconnaissance & Live Symbol Verification
+- Search for existing components, controllers, and services related to the feature using `grep_search` and `find_by_name`.
 - Check shared directories to determine if matching DTOs or models already exist.
-- Audit candidate services for reusability.
+- Verify that every file marked `Modify` or `Delete` and every reused function/interface actually exists in the workspace (`[x] Verified in codebase`).
 - Identify exact file paths to create, modify, or delete.
 
 ### Step 2: Shared Contracts & API Design
@@ -157,15 +163,18 @@ Append this compact, decision-focused markdown block to the existing issue descr
 ---
 
 ## Implementation Plan
+<!-- Add [FAST-TRACK] to header if <=2 files modified, 0 new deps, 0 schema changes, 0 breaking contract changes -->
 
 ### 1. Key Technical Decisions (For Architect Audit)
+- **Fast-Track Eligibility**: `[STANDARD — Requires Architect Review]` or `[FAST-TRACK — <=2 files, 0 new deps, 0 schema/contract changes -> Direct to Ready]`
 - **Decision 1**: Architectural approach, design pattern, and rationale.
 - **Decision 2**: State management, concurrency, or lifecycle strategy.
 - **Decision 3**: Integration boundaries and data flow.
 
-### 2. Code Reuse & Integration Strategy
-- **Reused Services / Utilities**: List existing services, helpers, or hooks to inject/reuse.
+### 2. Code Reuse & Anti-Hallucination Verification
+- **Reused Services / Utilities**: List existing services, helpers, or hooks with exact `file:line` references verified via search.
 - **Shared Contracts**: Reused interfaces from shared packages.
+- **Symbol Audit**: `[x] All modified file paths and reused symbols verified in live codebase.`
 
 ### 3. Contract & API Overview
 - **Endpoints / Signatures**: HTTP methods, route paths, core signatures.
@@ -187,12 +196,12 @@ Append this compact, decision-focused markdown block to the existing issue descr
 - `feature/<issue-number>-<short-slug>`
 
 #### File Impact Matrix
-| Action | File Path | Purpose |
-| :--- | :--- | :--- |
-| Create | `shared/dtos/example.dto.ts` | Shared contract schemas |
-| Modify | `backend/src/example/example.controller.ts` | Route handling |
-| Modify | `backend/src/example/example.service.ts` | Business logic |
-| Create | `frontend/src/app/example/example.component.ts` | Client UI component |
+| Action | File Path | Verified Exists? | Purpose |
+| :--- | :--- | :---: | :--- |
+| Create | `shared/dtos/example.dto.ts` | N/A (New) | Shared contract schemas |
+| Modify | `backend/src/example/example.controller.ts` | ✅ Yes | Route handling |
+| Modify | `backend/src/example/example.service.ts` | ✅ Yes | Business logic |
+| Create | `frontend/src/app/example/example.component.ts` | N/A (New) | Client UI component |
 
 #### Shared DTO Definitions
 ```typescript
@@ -246,8 +255,15 @@ EOF
      tools/project-move.sh <ISSUE_NUMBER> --attention "Needs Decision"
      ```
 
-- **Case B: Plan Complete & Ready for Review**
+- **Case B: Standard Plan Complete & Ready for Architectural Review**
   Handoff to `role-architect`:
   ```bash
   tools/project-move.sh <ISSUE_NUMBER> --status "Architect" --attention "Standard"
+  ```
+
+- **Case C: Trivial `[FAST-TRACK]` Plan Complete ($\le 2$ files, 0 new deps, 0 schema/contract changes)**
+  Post fast-track notice comment and move directly to `Ready` (bypassing `Architect`):
+  ```bash
+  gh issue comment <ISSUE_NUMBER> --body "⚡ **[FAST-TRACK] Approved**: Trivial scope (<=2 files, 0 new dependencies, 0 schema/contract changes). Routing directly to **Ready**."
+  tools/project-move.sh <ISSUE_NUMBER> --status "Ready" --attention "Standard"
   ```

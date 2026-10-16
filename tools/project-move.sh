@@ -24,11 +24,13 @@ Examples:
   tools/project-move.sh 42 --status "Architect" --attention "Standard"
 
 Options:
-  -s, --status      Target column name (e.g. "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA", "Done" or role aliases like "role-implementer")
-  -a, --attention   Target attention name (e.g. "Standard", "Needs Decision", supports aliases like "needs-decision")
-  -p, --project     Project number (default from .project-config.json or $GH_PROJECT_NUMBER)
-  -o, --owner       Project owner (default from .project-config.json or $GH_PROJECT_OWNER)
-  -h, --help        Show this help message
+  -s, --status         Target column name (e.g. "PM", "Senior Dev", "Architect", "Implementer", "Code Review", "QA", "Done" or role aliases like "role-implementer")
+  -a, --attention      Target attention name (e.g. "Standard", "Needs Decision", supports aliases like "needs-decision")
+  -p, --project        Project number (default from .project-config.json or $GH_PROJECT_NUMBER)
+  -o, --owner          Project owner (default from .project-config.json or $GH_PROJECT_OWNER)
+  --max-bounces        Max backward transitions before circuit breaker escalates to 'Needs Decision' (default: 3)
+  --reset-bounces      Reset backward transition bounce counter for this issue
+  -h, --help           Show this help message
 EOF
   exit "${1:-0}"
 }
@@ -44,6 +46,8 @@ PROJECT_NUMBER=""
 PROJECT_OWNER=""
 STATUS_FIELD="Status"
 ATTENTION_FIELD="Attention"
+MAX_BOUNCES="${GH_PROJECT_MAX_BOUNCES:-3}"
+RESET_BOUNCES=0
 
 # Load defaults from config file if available
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -85,6 +89,14 @@ while [[ $# -gt 0 ]]; do
       PROJECT_OWNER="$2"
       shift 2
       ;;
+    --max-bounces)
+      MAX_BOUNCES="$2"
+      shift 2
+      ;;
+    --reset-bounces)
+      RESET_BOUNCES=1
+      shift
+      ;;
     *)
       if [[ -z "$TARGET_REF" ]]; then
         TARGET_REF="$1"
@@ -99,8 +111,8 @@ if [[ -z "$TARGET_REF" ]]; then
   usage 1
 fi
 
-if [[ -z "$TARGET_STATUS" ]] && [[ -z "$TARGET_ATTENTION" ]]; then
-  echo "Error: Must specify at least one of --status or --attention" >&2
+if [[ -z "$TARGET_STATUS" ]] && [[ -z "$TARGET_ATTENTION" ]] && [[ "$RESET_BOUNCES" -eq 0 ]]; then
+  echo "Error: Must specify at least one of --status, --attention, or --reset-bounces" >&2
   usage 1
 fi
 
@@ -131,10 +143,23 @@ target_status = "${TARGET_STATUS}".strip()
 target_attention = "${TARGET_ATTENTION}".strip()
 status_field_name = "${STATUS_FIELD}".strip().lower()
 attention_field_name = "${ATTENTION_FIELD}".strip().lower()
+max_bounces = int("${MAX_BOUNCES}")
+reset_bounces = int("${RESET_BOUNCES}")
 
 meta_cache_file = f"/tmp/gh-project-metadata-{owner}-{p_num}.json"
 items_cache_file = f"/tmp/gh-project-cache-{owner}-{p_num}.json"
+bounce_file = f"/tmp/gh-bounce-{owner}-{p_num}-{target_ref}.count"
 meta_ttl = 86400  # 24 hours
+
+if reset_bounces == 1:
+    if os.path.exists(bounce_file):
+        try:
+            os.remove(bounce_file)
+        except Exception:
+            pass
+    if not target_status and not target_attention:
+        print(f"[project-move] Reset bounce counter for #{target_ref}")
+        sys.exit(0)
 
 def run_json(cmd):
     res = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -206,6 +231,18 @@ STATUS_ALIASES = {
     "backlog": "backlog",
 }
 
+STAGE_ORDER = {
+    "backlog": 0,
+    "pm": 1,
+    "senior dev": 2,
+    "architect": 3,
+    "ready": 4,
+    "implementer": 5,
+    "code review": 6,
+    "qa": 7,
+    "done": 8,
+}
+
 ATTENTION_ALIASES = {
     "standard": "standard",
     "needs decision": "needs decision",
@@ -214,8 +251,96 @@ ATTENTION_ALIASES = {
     "decision": "needs decision",
 }
 
+# 2. Locate Item ID & Current Status (Check local items cache first)
+item_id = None
+current_status_norm = ""
+issue_num_str = target_ref if not target_ref.startswith("PVTI_") else ""
+
+def extract_item_info(it):
+    it_status = ""
+    for k, v in it.items():
+        lk = k.strip().lower()
+        if lk == status_field_name or lk == "status":
+            it_status = str(v).strip().lower() if v is not None else ""
+    return it.get("id"), STATUS_ALIASES.get(it_status, it_status), str(it.get("content", {}).get("number", ""))
+
+if os.path.exists(items_cache_file):
+    try:
+        with open(items_cache_file, "r") as f:
+            c_data = json.load(f)
+            for it in c_data.get("items", []):
+                cid, cstat, cnum = extract_item_info(it)
+                if (target_ref.startswith("PVTI_") and cid == target_ref) or (cnum == str(target_ref)):
+                    item_id = cid
+                    current_status_norm = cstat
+                    issue_num_str = cnum or issue_num_str
+                    break
+    except Exception:
+        pass
+
+if not item_id:
+    if target_ref.startswith("PVTI_"):
+        item_id = target_ref
+    else:
+        try:
+            item_limit = os.environ.get("GH_PROJECT_ITEM_LIMIT", "100")
+            items_data = run_json([gh_cmd, "project", "item-list", p_num, "--owner", owner, "--limit", item_limit, "--format", "json"])
+            for it in items_data.get("items", []):
+                cid, cstat, cnum = extract_item_info(it)
+                if cnum == str(target_ref):
+                    item_id = cid
+                    current_status_norm = cstat
+                    issue_num_str = cnum
+                    break
+        except Exception as e:
+            sys.stderr.write(f"Error fetching project items: {e}\n")
+            sys.exit(1)
+
+if not item_id:
+    sys.stderr.write(f"Error: Could not find project item corresponding to issue #{target_ref}\n")
+    sys.exit(1)
+
 target_status_norm = STATUS_ALIASES.get(target_status.lower(), target_status.lower()) if target_status else ""
 target_att_norm = ATTENTION_ALIASES.get(target_attention.lower(), target_attention.lower()) if target_attention else ""
+
+# 3. Circuit Breaker Evaluation for Backward Transitions
+circuit_breaker_triggered = False
+bounce_count = 0
+if issue_num_str:
+    bounce_file = f"/tmp/gh-bounce-{owner}-{p_num}-{issue_num_str}.count"
+
+if target_status_norm in ("ready", "done"):
+    if os.path.exists(bounce_file):
+        try:
+            os.remove(bounce_file)
+        except Exception:
+            pass
+elif target_status_norm and current_status_norm:
+    cur_idx = STAGE_ORDER.get(current_status_norm, -1)
+    tgt_idx = STAGE_ORDER.get(target_status_norm, -1)
+    if cur_idx > tgt_idx >= 0:
+        try:
+            if os.path.exists(bounce_file):
+                with open(bounce_file, "r") as bf:
+                    bounce_count = int(bf.read().strip() or "0")
+        except Exception:
+            bounce_count = 0
+        bounce_count += 1
+        if max_bounces > 0 and bounce_count >= max_bounces:
+            circuit_breaker_triggered = True
+            target_attention = "Needs Decision"
+            target_att_norm = "needs decision"
+            try:
+                if os.path.exists(bounce_file):
+                    os.remove(bounce_file)
+            except Exception:
+                pass
+        else:
+            try:
+                with open(bounce_file, "w") as bf:
+                    bf.write(str(bounce_count))
+            except Exception:
+                pass
 
 for f in fields:
     fname = f.get("name", "").strip().lower()
@@ -247,42 +372,7 @@ if target_status and not status_option_id:
 if target_attention and not attention_option_id:
     sys.stderr.write(f"Warning: Option '{target_attention}' not found in field '{attention_field_name}'\n")
 
-# 2. Locate Item ID (Check local items cache first)
-item_id = None
-if target_ref.startswith("PVTI_"):
-    item_id = target_ref
-else:
-    # Try reading from items cache first
-    if os.path.exists(items_cache_file):
-        try:
-            with open(items_cache_file, "r") as f:
-                c_data = json.load(f)
-                for it in c_data.get("items", []):
-                    content = it.get("content", {})
-                    if str(content.get("number")) == str(target_ref):
-                        item_id = it.get("id")
-                        break
-        except Exception:
-            pass
-
-    # If not in cache, fetch live
-    if not item_id:
-        try:
-            items_data = run_json([gh_cmd, "project", "item-list", p_num, "--owner", owner, "--format", "json"])
-            for it in items_data.get("items", []):
-                content = it.get("content", {})
-                if str(content.get("number")) == str(target_ref):
-                    item_id = it.get("id")
-                    break
-        except Exception as e:
-            sys.stderr.write(f"Error fetching project items: {e}\n")
-            sys.exit(1)
-
-if not item_id:
-    sys.stderr.write(f"Error: Could not find project item corresponding to issue #{target_ref}\n")
-    sys.exit(1)
-
-# 3. Perform Field Updates
+# 4. Perform Field Updates
 updated = []
 if target_status and status_field_id and status_option_id:
     cmd = [
@@ -306,7 +396,16 @@ if target_attention and attention_field_id and attention_option_id:
     subprocess.run(cmd, check=True)
     updated.append(f"Attention -> '{attention_option_name or target_attention}'")
 
-# 4. Invalidate items cache so pollers immediately see updated item state
+if circuit_breaker_triggered and issue_num_str:
+    cb_msg = (
+        f"⚠️ **Pipeline Circuit Breaker Triggered**: Issue #{issue_num_str} has been routed backward "
+        f"{bounce_count} times (threshold: {max_bounces}). Automatically escalating 'Attention' to "
+        f"**Needs Decision** to prevent an infinite agent ping-pong loop."
+    )
+    subprocess.run([gh_cmd, "issue", "comment", issue_num_str, "--body", cb_msg], capture_output=True)
+    updated.append(f"CIRCUIT BREAKER ({bounce_count} bounces -> Needs Decision)")
+
+# 5. Invalidate items cache so pollers immediately see updated item state
 if os.path.exists(items_cache_file):
     try:
         os.remove(items_cache_file)
