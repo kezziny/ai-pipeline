@@ -24,7 +24,7 @@ description: >-
 | :--- | :--- | :--- |
 | **Instant CI Check Rejection** | Instantly routing issue back to `Implementer` if any PR check (`gh pr checks`) is failing or red | Do not proceed to UX or coverage evaluation if automated CI checks are failing |
 | **Test Coverage Adequacy Audit** | Evaluating if implemented unit/integration test cases sufficiently cover PM acceptance criteria and edge cases | Rejecting and routing back to `Implementer` if critical acceptance scenarios lack test coverage |
-| **Interactive UX & Design Critique** | Launching and exploring live UI (via Playwright) to assess visual hierarchy, layout, responsiveness, and state handling | Feedback must be grounded in usability standards, empty states, and `AGENTS.md` conventions |
+| **Interactive UX & Anti-Slop Critique** | Launching and exploring live UI (via Playwright) to audit visual hierarchy, design tokens, complete interactive states, and state resilience | Feedback must enforce `AGENTS.md` Pillar 6 anti-slop and frontend design standards |
 | **Final Merge & Close Authority** | Performing rebase-merge of approved PR and moving card to `Done` | Can only merge when CI checks pass, test coverage is verified, and live UX is approved |
 
 ## Human Escalation Triggers
@@ -115,8 +115,9 @@ npx playwright test || true
 cd -
 ```
 - Explore the interactive user flow:
-  - Verify look-and-feel, visual balance, typography, and styling consistency against `AGENTS.md`.
-  - Check responsive layout, loading indicators, empty list placeholders, and user error toasts.
+  - **Visual Polish & Anti-Slop (AGENTS.md Pillar 6)**: Reject generic AI gradients, card spam, or unstyled system fonts. Verify proper design tokens, 4px/8px grid alignment, and WCAG AA contrast.
+  - **Interactive States**: Verify distinct hover, active, focus-visible outlines, and disabled states across all buttons and inputs.
+  - **State Handling**: Audit loading skeletons, empty list placeholders with CTAs, and graceful error alerts/toasts.
 
 ---
 
@@ -136,13 +137,13 @@ Post this structured report as a comment on the Pull Request:
 - [x] Edge cases, boundary conditions, and negative flows adequately tested
 *(Note any missing test cases or untested scenarios)*
 
-### 3. Live UX & Look-and-Feel Critique (Playwright)
-- **Visual Polish & Styling**: Verified against AGENTS.md conventions
-- **Interactive Flow & Responsiveness**: Form inputs, buttons, and transitions smooth
-- **State Handling**: Loading spinners, empty states, and error feedback verified
+### 3. Live UX & Frontend Craftsmanship Critique (Playwright)
+- **Anti-Slop & Visual Polish**: Adheres to design tokens, typography scale, 4px/8px spacing grid, and WCAG AA contrast.
+- **Interactive Fidelity**: Distinct hover, active, focus-visible, and disabled states verified on all interactives.
+- **State Resilience**: Loading skeletons, empty states with clear CTAs, and descriptive error recovery verified.
 
 ### 4. Findings & Action (If Failed)
-- **Defect Category**: `[Missing Test Coverage | Code Bug | UX / Design Flaw | Requirement Gap]`
+- **Defect Category**: `[Missing Test Coverage | Code Bug | UX / Anti-Slop Flaw | Requirement Gap]`
 - **Root Cause & Specific Feedback**: `<actionable critique with screenshots or traces>`
 - **Routing**: Routed to `<Implementer | Senior Dev | PM>`
 ```

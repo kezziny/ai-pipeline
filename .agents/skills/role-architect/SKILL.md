@@ -66,7 +66,7 @@ description: >-
 1. **Architectural Authority & Gatekeeping**: Do not rubber-stamp technical plans. Actively challenge tight coupling, fragile data contracts, missing error handling, and leaky abstractions. Flaws caught in planning take minutes to fix; flaws caught in production take days.
 2. **Five Deep Architectural Pillars**:
    - **Modular Separation & Decoupling**: Are modules cleanly encapsulated? Are business services isolated from controllers/handlers? Are UI components decoupled from transport logic? Are circular dependencies avoided?
-   - **Data Models & DTO Future-Proofing**: Are shared contracts placed in common packages without duplicate definitions? Are models strictly typed, normalized, and extensible?
+   - **Data Models, DTOs & Safe Migrations**: Are shared contracts placed in common packages without duplicate definitions? Are models strictly typed, normalized, and extensible? Are database changes following zero-downtime expand/contract rules with short lock timeouts?
    - **Resource Management & Leak-Free Execution**: Are asynchronous streams, timers, event listeners, and memory footprints clean and guaranteed to tear down properly?
    - **Robustness & Fault Tolerance**: How does the architecture handle network disconnects, service drops, database transaction failures, or invalid payloads?
    - **Anti-Overengineering & Reduction Ladder (Ponytail)**: Did the plan exhaust existing codebase services, standard libraries, and native platform features before proposing new code? Veto speculative abstractions and unneeded packages.
@@ -92,10 +92,11 @@ When this command terminates with status `0`, an issue in the `Architect` column
 - [ ] Are components decoupled and following modern component architectural patterns?
 - [ ] Are there any hidden circular dependencies or monolithic classes being introduced?
 
-### Pillar 2: Data Models & DTO Future-Proofing
+### Pillar 2: Data Models, DTOs & Safe Migrations
 - [ ] Are request and response DTOs fully defined with explicit types in shared packages?
 - [ ] Is DTO duplication completely avoided across consumers?
 - [ ] Are database models and schemas designed for indexing and atomic updates?
+- [ ] Do database changes strictly follow zero-downtime Expand/Contract patterns (nullable first, async backfills, short lock timeouts)?
 - [ ] Are API endpoints adhering to standard semantics (HTTP methods, paths, and status codes)?
 
 ### Pillar 3: Resource Management & Leak-Free Execution
@@ -150,7 +151,7 @@ Post this approval report when all architectural criteria are satisfied:
 
 The implementation plan has been audited and approved by the Architect:
 - **Modularity**: Clean separation of concerns, decoupled services.
-- **Data Contracts**: Strongly typed shared DTOs, zero contract duplication.
+- **Data Contracts & Migrations**: Strongly typed shared DTOs, zero duplication, safe expand/contract schema evolution.
 - **Resource Safety**: Leak-free lifecycle and resource cleanup verified.
 - **Robustness & Security**: Input validation and access guards intact.
 - **Anti-Overengineering**: Verified minimal footprint, zero unnecessary wrappers or dependencies.

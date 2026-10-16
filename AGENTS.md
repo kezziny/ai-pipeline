@@ -70,17 +70,18 @@ Commits must follow the **Conventional Commits** specification with explicit iss
 
 ## 4. Architectural Pillars & Code Quality Standards
 
-Every technical implementation must satisfy the **Four Architectural Pillars**:
+Every technical implementation must satisfy the **Core Architectural Pillars**:
 
 1. **Modular Separation**:
    - Keep business logic decoupled from presentation and infrastructure adapters.
    - Maintain single responsibility per module; avoid monolith controller or utility files.
    - Avoid circular dependencies and tight coupling across subsystems.
 
-2. **Explicit Data Contracts & DTOs**:
+2. **Explicit Data Contracts, DTOs & Safe Migrations**:
    - Define strongly typed, immutable schemas or DTOs for boundary crossing.
    - Eliminate duplicate or conflicting schema definitions across layers.
    - Validate inputs at perimeter boundaries; trust internal strongly typed structures.
+   - **Zero-Downtime Database Migrations**: Always apply the Expand/Contract pattern. Never drop or rename active columns in a single step. Add columns as nullable or with safe defaults first; backfill data asynchronously; update application logic; prune deprecated structures in a subsequent deployment. Set short lock timeouts on DDL.
 
 3. **Leak-Free Resource Management**:
    - All files, sockets, database handles, subprocesses, and temporary directories must be deterministically released.
@@ -103,6 +104,12 @@ Every technical implementation must satisfy the **Four Architectural Pillars**:
      6. **Can it be written in a few clean lines?** (Avoid multi-file wrapper layers for simple logic).
      7. **Only then**: Author the absolute minimum code that satisfies the requirement.
    - *Safety Invariant*: Never sacrifice security, trust-boundary validation, accessibility, or error handling.
+
+6. **Frontend Craftsmanship & Anti-Slop (Frontend Design Principle)**:
+   - Reject generic "AI-slop" aesthetics: avoid repetitive purple gradients, generic card grids, and unstyled default fonts.
+   - Maintain visual consistency: adhere to established design tokens, coherent spacing scale (4px/8px grid), accessible contrast ratios (WCAG AA), and typographic hierarchy.
+   - Complete interaction fidelity: specify and implement distinct hover, active, focus-visible, and disabled states for all interactive elements.
+   - Comprehensive state handling: every view must cleanly account for loading skeletons, empty states with guidance/CTAs, and descriptive error recovery.
 
 ---
 

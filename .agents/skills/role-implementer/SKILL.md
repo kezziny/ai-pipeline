@@ -22,7 +22,8 @@ description: >-
 | Category | Autonomous Authority | Boundaries & Limits |
 | :--- | :--- | :--- |
 | **Internal Code Implementation** | Writing algorithms, private functions, and component logic within planned file boundaries | Must strictly apply the Ponytail Reduction Ladder: minimal code, zero speculative wrappers. Cannot alter public signatures, DTOs, or module boundaries |
-| **Unit Test Authoring** | Creating unit tests, assertions, mock instances, and edge-case test suites | Must ensure all existing and new unit tests pass cleanly |
+| **Test-Driven Development (TDD)** | Writing failing unit tests first (Red), implementing minimal code to pass (Green), and refactoring | Must observe test failure quietly before making it pass; all tests must pass cleanly |
+| **Frontend Craftsmanship & Anti-Slop** | Implementing UI with design tokens, 4px/8px grid, complete interactive states, and loading/empty/error states | Forbidden from using unstyled defaults, generic card grids, or missing interaction states |
 | **Code Styling & Formatting** | Applying local refactoring and code formatting to comply with linter rules | Must not modify unrelated files outside the approved plan ("while-I'm-here" edits forbidden) |
 | **Worktree Lifecycle Management** | Creating, mounting, and removing dedicated worktree directories in `.worktrees/` | Must never check out feature branches directly in the primary workspace root |
 
@@ -71,8 +72,10 @@ description: >-
    - Implement the requested fixes as new commits on the existing branch.
    - Reply directly to each review comment with a brief summary of how it was resolved.
 6. **Token-Sparing Silent Execution**: Run tests, linters, and builds in quiet mode. Passing commands output zero tokens into context; only failing assertions or errors are captured for debugging.
-7. **Anti-Overengineering (The Ponytail Ladder)**: Never write more code than strictly needed to fulfill the plan and pass tests. Follow the 7-rung ladder: *YAGNI $\rightarrow$ Reuse existing code $\rightarrow$ Standard library $\rightarrow$ Native platform $\rightarrow$ Installed packages $\rightarrow$ 1-liner $\rightarrow$ minimal code*. Never add speculative wrappers, unused utility helpers, or unrequested features.
-8. **Bot Identity**: All GitHub CLI operations run under `No Git Sherlock [bot]`.
+7. **Test-Driven Development (TDD)**: Follow Red-Green-Refactor. Author the unit test first, observe the failure quietly, implement the minimal code to turn the test green, and refactor cleanly.
+8. **Frontend Craftsmanship & Anti-Slop**: Reject generic AI-slop UI. Adhere to design tokens, maintain a 4px/8px spacing grid, implement complete interactive states (hover, active, focus-visible, disabled), and handle loading skeletons, empty states, and descriptive error recovery.
+9. **Anti-Overengineering (The Ponytail Ladder)**: Never write more code than strictly needed to fulfill the plan and pass tests. Follow the 7-rung ladder: *YAGNI $\rightarrow$ Reuse existing code $\rightarrow$ Standard library $\rightarrow$ Native platform $\rightarrow$ Installed packages $\rightarrow$ 1-liner $\rightarrow$ minimal code*. Never add speculative wrappers, unused utility helpers, or unrequested features.
+10. **Bot Identity**: All GitHub CLI operations run under `No Git Sherlock [bot]`.
 
 ---
 
@@ -143,8 +146,14 @@ cd "$WORKTREE_DIR"
 
 #### Case A: Fresh Implementation
 - Follow the `Files Modified / Created` table and DTO contracts defined in the issue plan.
-- Implement business logic, services, and user interfaces.
-- Add or update relevant unit test suites.
+- **TDD Red-Green-Refactor Cycle**:
+  1. **Red**: Author focused unit test for planned function/behavior; run test quietly; confirm it fails for expected reason.
+  2. **Green**: Write minimal implementation code to pass test (strictly obeying the Ponytail Ladder).
+  3. **Refactor**: Clean up and format code; verify tests remain green without regression.
+- **Frontend Craftsmanship**:
+  - Implement UI using defined design tokens and standard 4px/8px spacing grid.
+  - Provide distinct states for every interactive element: default, hover, active, focus-visible, and disabled.
+  - Implement loading skeletons, informative empty states, and recoverable error messages.
 - **Incorporate Proposed AGENTS.md Additions**:
   Check `## 4. Proposed AGENTS.md Additions` in the issue specification AND `#### Proposed AGENTS.md Additions` in the Architect review comments. If new conventions, patterns, or architectural guardrails are proposed (and not marked `None`), update `AGENTS.md` directly in the feature branch and include the change in your commit.
 

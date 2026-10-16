@@ -207,6 +207,46 @@ This document aggregates architectural refinements, role enhancements, and workf
 
 ---
 
+## 7. Skill Knowledge Absorption (Top Skills Integration)
+
+### FB-17: Frontend Craftsmanship & Anti-Slop Principles
+- **Problem**: Autonomous frontend implementations tend to generate generic AI-slop (repetitive purple gradients, generic unstyled card grids, missing hover/focus states, and unhandled empty/loading states).
+- **Proposed Solution**:
+  - Codify Pillar 6 in `AGENTS.md`: design tokens, 4px/8px grid scale, WCAG AA contrast, complete interactive fidelity (hover, active, focus-visible, disabled), loading skeletons, and informative empty/error states.
+  - Enforce in `role-implementer/SKILL.md` during UI coding and `role-qa-engineer/SKILL.md` during Playwright live inspection.
+- **Affected Components**: `AGENTS.md` (Pillar 6), `role-implementer/SKILL.md`, `role-qa-engineer/SKILL.md`
+
+---
+
+### FB-18: Zero-Downtime Database Migrations (Expand/Contract Pattern)
+- **Problem**: Schema changes proposed by agents often rename or drop active columns in a single step, causing production downtime and breaking running application instances.
+- **Proposed Solution**:
+  - Integrate safe schema evolution into `AGENTS.md` (Pillar 2): Expand/Contract pattern, nullable additions first, async backfills, and short lock timeouts on DDL.
+  - Require `role-senior-developer` to plan migrations safely in the implementation plan.
+  - Require `role-architect` to audit migration safety in Pillar 2 gatekeeping.
+- **Affected Components**: `AGENTS.md` (Pillar 2), `role-senior-developer/SKILL.md`, `role-architect/SKILL.md`
+
+---
+
+### FB-19: Test-Driven Development (TDD) Red-Green-Refactor Cycle
+- **Problem**: Agents often write tests after writing code, producing tautological tests that pass regardless of regressions or miss critical edge cases.
+- **Proposed Solution**:
+  - Mandate TDD in `role-implementer/SKILL.md`:
+    1. **Red**: Author unit test first; verify failure quietly.
+    2. **Green**: Write minimal implementation code to pass test.
+    3. **Refactor**: Clean up while keeping tests green.
+- **Affected Components**: `role-implementer/SKILL.md`
+
+---
+
+### FB-20: Grill-Me Relentless Clarification & Trade-off Grilling
+- **Problem**: PM role asks open-ended questions like "What do you think?", stalling human decision-making and requiring multiple back-and-forth iterations.
+- **Proposed Solution**:
+  - Incorporate Grill-Me protocol into `role-product-manager/SKILL.md`: when clarifying ambiguous scope or escalating under `Needs Decision`, frame inquiries as 2–4 sharp, mutually exclusive trade-off options with concrete pros/cons and an explicit recommended option.
+- **Affected Components**: `role-product-manager/SKILL.md`
+
+---
+
 ## Batch Implementation Tracker
 
 | ID | Title | Priority | Status |
@@ -227,6 +267,10 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-14** | Compact Match Banner (`poll-project.sh --compact`) | Medium | ✅ Implemented |
 | **FB-15** | Session Context Hygiene & Reset Architecture (`instruction.md`) | High | ✅ Implemented |
 | **FB-16** | Ponytail Anti-Overengineering Reduction Ladder Integration | High | ✅ Implemented |
+| **FB-17** | Frontend Craftsmanship & Anti-Slop (Pillar 6, Implementer & QA) | High | ✅ Implemented |
+| **FB-18** | Zero-Downtime Database Migrations (Expand/Contract, Senior Dev & Architect) | High | ✅ Implemented |
+| **FB-19** | Test-Driven Development (TDD Red-Green-Refactor in Implementer) | High | ✅ Implemented |
+| **FB-20** | Grill-Me Relentless Clarification & Trade-off Grilling (PM Protocol) | High | ✅ Implemented |
 
 
 

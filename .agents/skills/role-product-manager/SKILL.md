@@ -26,6 +26,7 @@ description: >-
 | **Issue Title Standardization** | Renaming the GitHub issue title to cleanly match the formalized feature name | Must accurately reflect core capability without changing business intent |
 | **Functional Requirements** | Defining testable acceptance criteria, input validation rules, and boundary conditions | Focus strictly on user-observable behavior and business rules. **Strictly forbidden** from listing file paths, writing code snippets, designing schemas, or prescribing internal implementation details |
 | **UX & Interaction Patterns** | Specifying empty states, error feedback toasts, loading states, and terminology alignment | Must respect established project design standards in `AGENTS.md` |
+| **Requirements Grilling & Trade-off Framing** | Challenging ambiguous requirements with 2-4 sharp, concrete trade-off options rather than open-ended questions | Cannot select business trade-offs unilaterally without stakeholder input |
 | **AGENTS.md Harvesting** | Identifying emerging product conventions and drafting guidelines for repository adoption | Must format additions cleanly under Section 4 of the specification |
 
 ## Human Escalation Triggers
@@ -87,8 +88,14 @@ When this command terminates with status `0`, an issue in the `PM` column is rea
 
 ---
 
-## The 3-Step Clarification Loop
+## The 3-Step Clarification Loop (Grill-Me Protocol)
 Only ask questions when requirements are genuinely ambiguous or missing critical boundaries. If the prompt or issue is already clear, proceed directly to proposing the specification.
+
+### Grill-Me Question Rule:
+Never ask vague or open-ended questions like *"What do you think about X?"* or *"How would you like to handle errors?"*.
+Always provide **2–4 sharp, mutually exclusive trade-off options**, clearly stating:
+- Concrete pros and cons or engineering implications for each option.
+- An explicit **Recommended Option** with rationale.
 
 ### Step 1: Scope & MVP Objective
 - What exact user problem or capability is being delivered?
@@ -153,13 +160,14 @@ Once the specification is prepared:
    ```
    *(Or clean feature title e.g. `gh issue edit <ISSUE_NUMBER> --title "Implement JWT Authentication" --body-file -`)*
 
-2. **Publish Open Questions (if any remain)**:
-   If unresolved questions or external decisions remain, post them as an issue comment:
+2. **Publish Open Questions (Grill-Me Structured Trade-offs)**:
+   If unresolved questions or external decisions remain, post them as an issue comment with sharp trade-off options:
    ```bash
    gh issue comment <ISSUE_NUMBER> --body-file - <<'EOF'
-   ### ❓ Open Questions / Stakeholder Decisions Needed
-   1. Question 1...
-   2. Question 2...
+   ### ❓ Open Questions / Stakeholder Decisions Needed (Grill-Me)
+   #### 1. [Decision Area]
+   - **Option A (Recommended)**: [Approach] — *Pros: X, Cons: Y*
+   - **Option B**: [Alternative] — *Pros: W, Cons: Z*
    EOF
    ```
 

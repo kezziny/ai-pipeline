@@ -25,6 +25,7 @@ description: >-
 | **Code Reuse & Architecture** | Selecting existing services, utilities, UI primitives, and DTOs to reuse or extend | Mandatory application of the Ponytail Reduction Ladder. Must exhaust existing codebase, standard library, and current dependencies before proposing new abstractions or packages |
 | **Method Signatures & Contracts** | Defining exact typed signatures, parameter structures, DTO interfaces, and HTTP status codes | Must maintain backward compatibility for existing consumers; no breaking public contracts |
 | **File Structure & Branching** | Determining exact files to create, modify, or delete, and naming the feature branch | Must follow project conventions (`feature/<issue-number>-<slug>`) and code layout |
+| **Database Migrations** | Specifying schema migrations using the Expand/Contract pattern with short lock timeouts | Prohibited from planning breaking single-step column renames or drops |
 | **Test Strategy & Fixtures** | Specifying unit test suites, test cases (happy path, edge cases, error states), and mock fixtures | Must define quality gates (linting, tests, build) required for downstream implementation |
 
 ## Human Escalation Triggers
@@ -75,8 +76,9 @@ description: >-
      6. *Can it be written in a few clean lines?* (Avoid multi-file wrapper layers for simple tasks).
      7. *Only then*: Propose the absolute minimum new code.
    - *Safety Invariant*: Never sacrifice security, trust-boundary validation, accessibility, or error recovery.
-3. **Blast Radius & Regression Risk Management**:
+3. **Blast Radius, Migrations & Regression Risk Management**:
    - Identify every existing module, endpoint, or UI view touched or affected by the changes.
+   - **Zero-Downtime Database Migrations**: When modifying schemas, always apply the Expand/Contract pattern. Add columns as nullable/with defaults first; backfill data asynchronously; never drop or rename active columns in a single step. Set short lock timeouts on DDL.
    - Specify backward-compatibility guarantees, migration steps, or deprecation paths.
    - Never introduce silent breaking changes to existing APIs or shared contracts.
 4. **Architectural Guardrails & Code Standards**:
@@ -169,9 +171,10 @@ Append this compact, decision-focused markdown block to the existing issue descr
 - **Endpoints / Signatures**: HTTP methods, route paths, core signatures.
 - **DTO Summary**: High-level shape of incoming and outgoing payloads.
 
-### 4. Regression & Blast Radius Assessment
+### 4. Regression, Blast Radius & Schema Migrations
 - **Affected Consumers**: Existing modules, components, or endpoints touching this data.
 - **Safety / Compatibility**: Default values, safe fallbacks, and regression mitigation.
+- **Database Migrations (If Applicable)**: Expand/Contract steps, nullable additions, backfill plan, and lock timeout settings.
 
 ### 5. Test Strategy & Quality Gates
 - **Unit Test Scenarios**: Specific happy path, edge case, and boundary conditions.
