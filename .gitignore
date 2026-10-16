@@ -1,7 +1,9 @@
 # Worktrees and environments
 .worktrees/
 .env
+.env.*
 *.log
+.project-config.json
 
 # Dependencies
 node_modules/
