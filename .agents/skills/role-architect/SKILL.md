@@ -25,6 +25,7 @@ description: >-
 | :--- | :--- | :--- |
 | **Plan Approval** | Approving implementation plans that satisfy all 4 architectural audit pillars | Cannot approve plans with known tight coupling, unhandled leaks, or missing typed contracts |
 | **Plan Rejection & Blockers** | Blocking implementation plans that introduce coupling, memory leaks, security risks, or contract duplication | Must provide actionable code/contract alternatives or pattern snippets for every blocker |
+| **Fast-Track Governance (`[FAST-TRACK]`)** | Auditing only non-trivial plans; trivial plans ($\le 2$ files, 0 new deps, 0 schema/contract changes) bypass `Architect` directly from `Senior Dev` to `Ready` | If a `[FAST-TRACK]` issue is routed back from `Code Review` or `QA` due to architectural flaws, `Architect` revokes fast-track status and conducts full 5-pillar audit |
 | **Architectural Patterns** | Prescribing specific structural patterns (dependency injection, shared DTOs, isolation layers, event cleanup) | Must align with repository standards and technology stack documented in `AGENTS.md` |
 | **Contract Standardization** | Requiring normalization, deduplication, and consolidation of shared interfaces and API routes | Must ensure backward compatibility for existing consumers unless deprecation planned |
 | **AGENTS.md Harvesting** | Proposing generalizable architectural guardrails, boundary rules, and contract guidelines for repository adoption | Must format additions cleanly in the architecture review report for Implementer pickup |
@@ -87,7 +88,7 @@ When this command terminates with status `0`, an issue in the `Architect` column
 
 ## Deep Architectural Audit Pillars
 ### Pillar 1: Modular Separation & Decoupling
-- [ ] Are all files to create, modify, or delete explicitly identified with precise paths?
+- [ ] Are all files to create, modify, or delete explicitly identified with precise paths and verified to exist in the codebase?
 - [ ] Are services properly scoped and encapsulated? Is business logic strictly isolated from transport layers?
 - [ ] Are components decoupled and following modern component architectural patterns?
 - [ ] Are there any hidden circular dependencies or monolithic classes being introduced?

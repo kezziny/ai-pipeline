@@ -254,7 +254,7 @@ sed -i "s/poll-project.sh/poll-custom.sh/" "${MUTANT_SKILLS}/role-architect/SKIL
 run_mutant "TC-MUT-11" "Missing tools/poll-project.sh reference in role-architect"
 reset_skills
 
-# TC-MUT-12: Unstructured Autonomous Decisions (Plain prose instead of table/list)
+# TC-MUT-12: Unstructured Autonomous Decisions (plain prose) in role-senior-developer
 python3 -c '
 import re
 path = "'"${MUTANT_SKILLS}"'/role-senior-developer/SKILL.md"
@@ -264,6 +264,29 @@ open(path, "w").write(mutated)
 '
 run_mutant "TC-MUT-12" "Unstructured Autonomous Decisions (plain prose) in role-senior-developer"
 reset_skills
+
+# -----------------------------------------------------------------------------
+# Test 6: Circuit Breaker & Gatekeeper Logic Verification
+# -----------------------------------------------------------------------------
+suite_header "Test 6: Circuit Breaker & Gatekeeper Flags"
+
+if "${SCRIPT_DIR}/project-move.sh" 999999 --reset-bounces >/dev/null; then
+  test_pass "project-move.sh --reset-bounces executes cleanly"
+else
+  test_fail "project-move.sh --reset-bounces failed"
+fi
+
+if grep -q "CONFLICTING" "${SCRIPT_DIR}/poll-project.sh" && grep -q "pending|in_progress" "${SCRIPT_DIR}/poll-project.sh"; then
+  test_pass "poll-project.sh includes merge conflict and pending CI gatekeeper checks"
+else
+  test_fail "poll-project.sh missing merge conflict or pending CI checks"
+fi
+
+if grep -q -- "--limit" "${SCRIPT_DIR}/poll-project.sh" && grep -q -- "--limit" "${SCRIPT_DIR}/project-move.sh"; then
+  test_pass "poll-project.sh and project-move.sh enforce --limit pagination"
+else
+  test_fail "Missing --limit pagination in poller or mover"
+fi
 
 echo "================================================================="
 echo -e "Test Results: ${GREEN}${PASSED} passed${NC}, ${RED}${FAILED} failed${NC}"

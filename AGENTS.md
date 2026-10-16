@@ -13,6 +13,8 @@ The canonical GitHub Projects issue lifecycle flows through nine standard column
 `Backlog` -> `PM` -> `Senior Dev` -> `Architect` -> `Ready` -> `Implementer` -> `Code Review` -> `QA` -> `Done`
 
 - **Ready Column (Implementation Gate)**: Holds architecturally approved issues ready for implementation. Acts as a manual backlog buffer. Implementer agents pick up tasks when moved from `Ready` or when instructed.
+- **Trivial Issue Fast-Track (`[FAST-TRACK]`)**: When an issue modifies $\le 2$ files, adds 0 new dependencies, introduces 0 database schema/migration changes, and makes 0 breaking contract changes, `role-senior-developer` tags the plan `[FAST-TRACK]` and moves the issue directly from `Senior Dev` $\rightarrow$ `Ready` (bypassing `Architect`).
+- **Backward-Transition Circuit Breaker**: `tools/project-move.sh` tracks backward transitions per issue (`/tmp/gh-bounce-<owner>-<num>-<issue>.count`). After 3 backward bounces (configurable via `--max-bounces`), the script automatically overrides `Attention` to `Needs Decision` and comments on the issue to halt infinite agent ping-pong loops. Counter resets when reaching `Ready` or `Done`.
 
 ### Dedicated Pipeline vs. Interactive Pair-Programming
 - **Pipeline Autonomous Operations**: Triggered exclusively through dedicated continuous polling loops or explicit user delegation targeting assigned GitHub Project issues.

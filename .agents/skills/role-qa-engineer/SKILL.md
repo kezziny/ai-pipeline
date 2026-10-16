@@ -22,10 +22,11 @@ description: >-
 ## Autonomous Decisions
 | Category | Autonomous Authority | Boundaries & Limits |
 | :--- | :--- | :--- |
-| **Instant CI Check Rejection** | Instantly routing issue back to `Implementer` if any PR check (`gh pr checks`) is failing or red | Do not proceed to UX or coverage evaluation if automated CI checks are failing |
+| **Instant CI Check & Conflict Rejection** | Instantly routing issue back to `Implementer` if any PR check (`gh pr checks`) is failing or merge conflicts exist | Do not proceed to UX or coverage evaluation if automated CI checks are failing |
 | **Test Coverage Adequacy Audit** | Evaluating if implemented unit/integration test cases sufficiently cover PM acceptance criteria and edge cases | Rejecting and routing back to `Implementer` if critical acceptance scenarios lack test coverage |
 | **Interactive UX & Anti-Slop Critique** | Launching and exploring live UI (via Playwright) to audit visual hierarchy, design tokens, complete interactive states, and state resilience | Feedback must enforce `AGENTS.md` Pillar 6 anti-slop and frontend design standards |
-| **Final Merge & Close Authority** | Performing rebase-merge of approved PR and moving card to `Done` | Can only merge when CI checks pass, test coverage is verified, and live UX is approved |
+| **Runtime Telemetry & Keyboard A11y Gate** | Rejecting PRs with uncaught `pageerror`, `console.error`, unexpected HTTP `>=400`/`5xx` responses, broken keyboard `Tab` focus order, or missing ARIA labels | Zero tolerance for silent console exceptions or keyboard traps during primary user journeys |
+| **Final Merge & Close Authority** | Performing rebase-merge of approved PR and moving card to `Done` | Can only merge when CI checks pass, test coverage is verified, runtime/a11y telemetry is clean, and live UX is approved |
 
 ## Human Escalation Triggers
 | Trigger Event | Reason for Human Intervention | Target Action & Board Attention |
@@ -74,7 +75,7 @@ description: >-
 ## Polling for Work
 Run `tools/poll-project.sh` as a background task to wait for issues approved by human review:
 ```bash
-tools/poll-project.sh --status "QA" --attention "Standard"
+tools/poll-project.sh --status "QA" --attention "Standard" --auto-bounce-ci --compact
 ```
 When this command exits with status `0`, an issue in `QA` is ready for automated testing.
 
@@ -101,7 +102,7 @@ gh pr checks <PR_NUMBER>
 3. Determine whether the implemented tests sufficiently cover positive user flows, error handling, boundary values, and negative edge cases.
 4. If coverage is inadequate or missing critical acceptance tests, document missing scenarios and route back to `Implementer`.
 
-### Step 3: Live UX & Design Exploration (Playwright)
+### Step 3: Live UX, Runtime Telemetry & Accessibility Exploration (Playwright)
 ```bash
 WORKTREE_DIR=".worktrees/qa-pr-<PR_NUMBER>"
 git fetch origin <branch-name>
@@ -114,10 +115,14 @@ npx playwright test || true
 
 cd -
 ```
-- Explore the interactive user flow:
+- Explore the interactive user flow and enforce four strict gates:
   - **Visual Polish & Anti-Slop (AGENTS.md Pillar 6)**: Reject generic AI gradients, card spam, or unstyled system fonts. Verify proper design tokens, 4px/8px grid alignment, and WCAG AA contrast.
   - **Interactive States**: Verify distinct hover, active, focus-visible outlines, and disabled states across all buttons and inputs.
   - **State Handling**: Audit loading skeletons, empty list placeholders with CTAs, and graceful error alerts/toasts.
+  - **Runtime Telemetry, Network & Keyboard A11y Gate**:
+    - Attach `page.on('pageerror', ...)` and `page.on('console', ...)` listeners in Playwright: verify **0 uncaught exceptions** and **0 unexpected `console.error` logs**.
+    - Attach `page.on('response', ...)`: verify **0 unexpected HTTP `>= 400` / `5xx` API failures** during happy-path flows.
+    - Verify keyboard-only navigation (`Tab`, `Shift+Tab`, `Enter`, `Escape`) traverses interactive elements in logical order with visible `:focus-visible` rings and semantic ARIA roles/labels.
 
 ---
 
@@ -137,13 +142,15 @@ Post this structured report as a comment on the Pull Request:
 - [x] Edge cases, boundary conditions, and negative flows adequately tested
 *(Note any missing test cases or untested scenarios)*
 
-### 3. Live UX & Frontend Craftsmanship Critique (Playwright)
+### 3. Live UX, Telemetry & Accessibility Critique (Playwright)
 - **Anti-Slop & Visual Polish**: Adheres to design tokens, typography scale, 4px/8px spacing grid, and WCAG AA contrast.
 - **Interactive Fidelity**: Distinct hover, active, focus-visible, and disabled states verified on all interactives.
 - **State Resilience**: Loading skeletons, empty states with clear CTAs, and descriptive error recovery verified.
+- **Runtime & Network Telemetry**: `0` uncaught `pageerror`, `0` `console.error` logs, and `0` unexpected HTTP `>=400`/`5xx` responses.
+- **Keyboard & ARIA Accessibility**: Full `Tab`/`Enter`/`Escape` keyboard traversal and semantic ARIA roles/labels verified.
 
 ### 4. Findings & Action (If Failed)
-- **Defect Category**: `[Missing Test Coverage | Code Bug | UX / Anti-Slop Flaw | Requirement Gap]`
+- **Defect Category**: `[Missing Test Coverage | Code Bug | Console/Network Error | UX / Anti-Slop / A11y Flaw | Requirement Gap]`
 - **Root Cause & Specific Feedback**: `<actionable critique with screenshots or traces>`
 - **Routing**: Routed to `<Implementer | Senior Dev | PM>`
 ```

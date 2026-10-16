@@ -377,9 +377,12 @@ The pipeline includes standardized command-line tools under `tools/` to facilita
 
 ### `tools/poll-project.sh`
 Long-polling listener that enables autonomous agents to wait for assigned items in their target Status column and Attention swimlane.
-Features **shared local caching** (`/tmp/gh-project-cache-<owner>-<num>.json` with 25s TTL and file-locking) so that all 6 concurrent agents share a single GraphQL query, reducing API load by 83%+. Includes automatic backoff if rate limits drop below 200 points:
+Features **shared local caching** (`/tmp/gh-project-cache-<owner>-<num>.json` with 25s TTL, `--limit 100`, and file-locking) so that all 6 concurrent agents share a single GraphQL query, reducing API load by 83%+. Includes automatic backoff if rate limits drop below 200 points:
 - `--compact` (`-q`): Outputs single-line match banner (`[poll-project] MATCH: #42...`) saving LLM context tokens.
-- `--auto-bounce-ci`: Zero-token script gatekeeper. Checks PR CI checks in pure bash; if failing, auto-comments failure on PR and bounces card back to `Implementer` without waking up the LLM.
+- `--auto-bounce-ci`: Zero-token script gatekeeper:
+  1. Checks PR `mergeable` state; if `CONFLICTING`, auto-comments and bounces card back to `Implementer` in pure bash (0 LLM tokens).
+  2. Checks PR CI status checks (`gh pr checks`); if failing (`fail|error|cancel`), auto-comments failure logs and bounces card to `Implementer` (0 LLM tokens).
+  3. If CI checks are still running (`pending|in_progress|queued|waiting`), keeps sleeping until checks finish before waking the agent.
 
 ```bash
 # Basic usage (default interval: 30s, default cache TTL: 25s)
@@ -393,7 +396,8 @@ Features **shared local caching** (`/tmp/gh-project-cache-<owner>-<num>.json` wi
 
 ### `tools/project-move.sh`
 CLI utility to update an issue's column Status and Attention swimlane on GitHub Projects v2.
-Caches static project metadata (`projectId`, `fields`, and options) in `/tmp/gh-project-metadata-<owner>-<num>.json` for 24 hours, and automatically invalidates the items cache upon move so pollers detect changes immediately:
+Caches static project metadata (`projectId`, `fields`, and options) in `/tmp/gh-project-metadata-<owner>-<num>.json` for 24 hours, queries up to `--limit 100` items, and automatically invalidates the items cache upon move so pollers detect changes immediately.
+Includes an automatic **Backward-Transition Circuit Breaker**: tracks backward moves in `/tmp/gh-bounce-<owner>-<num>-<issue>.count` and auto-escalates `Attention` to `Needs Decision` when an issue bounces backward `--max-bounces` times (default: `3`). Counter resets automatically when reaching `Ready` or `Done`, or via `--reset-bounces`:
 ```bash
 # Move status column
 ./tools/project-move.sh 42 --status "Senior Dev"
@@ -403,6 +407,9 @@ Caches static project metadata (`projectId`, `fields`, and options) in `/tmp/gh-
 
 # Move column and reset swimlane
 ./tools/project-move.sh 42 --status "QA" --attention "Standard"
+
+# Reset circuit-breaker bounce counter after human resolution
+./tools/project-move.sh 42 --attention "Standard" --reset-bounces
 ```
 
 ### `tools/verify-roles.sh`

@@ -21,11 +21,12 @@ description: >-
 ## Autonomous Decisions
 | Category | Autonomous Authority | Boundaries & Limits |
 | :--- | :--- | :--- |
-| **Instant CI Check Rejection** | Instantly rejecting and routing PR back to `Implementer` if any PR check (`gh pr checks`) is failing or red | Do not spend time on manual diff review if automated CI checks are failing |
+| **Instant CI Check & Conflict Rejection** | Instantly rejecting and routing PR back to `Implementer` if any PR check (`gh pr checks`) is failing or merge conflicts exist | Do not spend time on manual diff review if automated CI checks are failing or branch is conflicting |
 | **Feature Fidelity Verification** | Auditing diff against PM acceptance criteria; rejecting incomplete or out-of-scope implementations | Cannot approve PRs with missing acceptance criteria or unauthorized scope creep |
 | **Code Quality & Craftsmanship** | Enforcing clean code, strong typing (no `any`), error boundaries, and lack of unintended side effects | Focus on architectural cleanliness and readability rather than subjective personal stylistic preference |
-| **Anti-Duplication (DRY)** | Rejecting PRs that introduce redundant helper utilities, duplicate DTOs, or reimplement existing services | Must point out the existing reusable utility/service in feedback |
-| **AGENTS.md Validation** | Verifying `AGENTS.md` was updated in the PR diff per PM requirements; rejecting if omitted | If PM specification proposed additions, PR must incorporate them into `AGENTS.md` |
+| **Line-Level Citations & Replacement Snippets** | Requiring exact `path/to/file.ext:L<start>-L<end>` references and minimal replacement code snippets for every blocker | Strictly forbidden from posting vague, unanchored prose complaints without file:line coordinates |
+| **Anti-Duplication (DRY)** | Rejecting PRs that introduce redundant helper utilities, duplicate DTOs, or reimplement existing services | Must point out the existing reusable utility/service (`path/to/service.ts:L<num>`) in feedback |
+| **AGENTS.md Validation** | Verifying `AGENTS.md` was updated in the PR diff per PM/Architect requirements; rejecting if omitted | If PM specification or Architect review proposed additions, PR must incorporate them into `AGENTS.md` |
 
 ## Human Escalation Triggers
 | Trigger Event | Reason for Human Intervention | Target Action & Board Attention |
@@ -68,19 +69,20 @@ description: >-
    - Strict input sanitization, security boundary protection, and safe secret handling.
    - Concurrency, memory leak prevention, and proper resource teardown.
    - Rebase-only merge history; no direct pushes to master.
-3. **Isolated Worktree Directory**: Never check out PR branches into the main workspace root to run tests or inspections. Always mount and verify the branch inside a temporary worktree (`.worktrees/review-pr-<PR_NUMBER>`).
-4. **AI-to-Human Review Handoff**:
+3. **Exact Line-Level Citations & Actionable Snippets**: Every review blocker or change request MUST cite the exact file path and line range (`path/to/file.ts:L42-L50`) and provide a minimal drop-in code replacement snippet so `role-implementer` can resolve it in a single pass without searching.
+4. **Isolated Worktree Directory**: Never check out PR branches into the main workspace root to run tests or inspections. Always mount and verify the branch inside a temporary worktree (`.worktrees/review-pr-<PR_NUMBER>`).
+5. **AI-to-Human Review Handoff**:
    - The AI reviewer runs automated verification and diff analysis while the card is in `Code Review` (`Attention: Standard`).
    - When AI review passes, the agent undrafts the PR, submits an approving review, and flips the card's attention to `Needs Decision` (still in column `Code Review`).
    - The card elevates into the top swimlane for the Human Reviewer to inspect and advance to `QA`.
-5. **Bot Identity**: All operations run under the GitHub App bot identity (`No Git Sherlock [bot]`).
+6. **Bot Identity**: All operations run under the GitHub App bot identity (`No Git Sherlock [bot]`).
 
 ---
 
 ## Polling for Work
 Run `tools/poll-project.sh` as a background task to wait for assigned review items:
 ```bash
-tools/poll-project.sh --status "Code Review" --attention "Standard"
+tools/poll-project.sh --status "Code Review" --attention "Standard" --auto-bounce-ci --compact
 ```
 When this command terminates with status `0`, an issue in `Code Review` with `Attention: Standard` is ready for automated code review.
 
@@ -112,8 +114,8 @@ cd "$WORKTREE_DIR"
 # Token Conservation: Check diff stat first to gauge modified files (~150 tokens)
 git diff --stat origin/master
 
-# Inspect code changes, excluding machine-generated lockfiles and build bundles
-git diff origin/master -- . ':!*-lock.json' ':!*.lock' ':!dist/*' ':!build/*'
+# Inspect code changes with line numbers, excluding machine-generated lockfiles and build bundles
+git diff -U3 origin/master -- . ':!*-lock.json' ':!*.lock' ':!dist/*' ':!build/*'
 cd -
 ```
 
@@ -160,10 +162,14 @@ Post the structured review report as a comment on the Pull Request:
 
 ### 3. Findings & Required Changes (If Changes Requested)
 #### 🔴 Critical / Blocker
-- Description of defect, duplicate code, or missing requirement.
+1. **`path/to/file.ts:L42-L48`** — Description of defect, duplicate code, or missing requirement.
+   - **Required Fix**:
+     ```typescript
+     // Minimal drop-in replacement snippet
+     ```
 
 #### 🟡 Suggestions & Polish
-- Non-blocking improvement.
+1. **`path/to/file.ts:L90`** — Non-blocking improvement.
 
 ### 4. Verdict
 **[APPROVED]** / **[CHANGES REQUESTED]**

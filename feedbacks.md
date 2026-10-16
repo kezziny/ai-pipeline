@@ -247,6 +247,67 @@ This document aggregates architectural refinements, role enhancements, and workf
 
 ---
 
+## 8. Pipeline Resilience, Anti-Hallucination & Precision Gates
+
+### FB-21: Backward-Transition Circuit Breaker (`project-move.sh`)
+- **Problem**: `Senior Dev` $\leftrightarrow$ `Architect` or `Implementer` $\leftrightarrow$ `Code Review` can bounce infinitely on unresolvable disagreements, burning tokens.
+- **Proposed Solution**:
+  - Track per-issue backward transition count in `/tmp/gh-bounce-<owner>-<num>-<issue>.count` inside `tools/project-move.sh`.
+  - Automatically escalate `Attention` to `Needs Decision` and post an issue alert comment after 3 backward transitions (`--max-bounces 3`).
+  - Auto-reset counter when reaching `Ready` or `Done`, or via `--reset-bounces`.
+- **Affected Components**: `tools/project-move.sh`, `AGENTS.md`, `README.md`, `instruction.md`
+
+### FB-22: Pending CI Wait in `--auto-bounce-ci` (`poll-project.sh`)
+- **Problem**: If PR checks are still `pending` or `in_progress` when an issue enters `Code Review` or `QA`, `poll-project.sh` wakes up the LLM agent prematurely, which then bounces the PR back to `Implementer` simply because CI hasn't finished.
+- **Proposed Solution**:
+  - In `tools/poll-project.sh` (`--auto-bounce-ci`), if `gh pr checks` shows `pending|in_progress|queued|waiting` and zero failures, keep sleeping until CI completes before waking the agent.
+- **Affected Components**: `tools/poll-project.sh`, `README.md`, `instruction.md`
+
+### FB-23: Zero-Token Merge Conflict Gatekeeper (`poll-project.sh`)
+- **Problem**: Upstream merges to `master` can cause a PR in `Code Review` or `QA` to become `CONFLICTING`, waking up Reviewer or QA agents on an unmergeable branch.
+- **Proposed Solution**:
+  - Check `mergeable` field via `gh pr list --json number,mergeable,statusCheckRollup` in `tools/poll-project.sh` (`--auto-bounce-ci`).
+  - If `CONFLICTING`, auto-comment on the PR and bounce the issue back to `Implementer` in pure bash (0 LLM tokens).
+- **Affected Components**: `tools/poll-project.sh`, `README.md`, `instruction.md`
+
+### FB-24: One-Shot Worker Execution + Fresh Subagent Respawn (`instruction.md`)
+- **Problem**: Subagents running infinite `while true` loops accumulate context across every issue processed, degrading reasoning quality and multiplying input token cost on later issues.
+- **Proposed Solution**:
+  - Configure subagent dispatch prompts in `instruction.md` for **One-Shot Execution Mode**: each worker polls for 1 issue, processes it to completion, transitions the board, and exits cleanly so the orchestrator spawns a fresh 0-context worker.
+- **Affected Components**: `instruction.md`
+
+### FB-25: Pagination Limit (`--limit 100`) in Project Poller & Mover
+- **Problem**: `gh project item-list` defaults to 30 items. Once a board accumulates $>30$ total items (including `Done`), new issues become invisible to `poll-project.sh` and `project-move.sh`.
+- **Proposed Solution**:
+  - Pass `--limit ${GH_PROJECT_ITEM_LIMIT:-100}` to `gh project item-list` in both `tools/poll-project.sh` and `tools/project-move.sh`.
+- **Affected Components**: `tools/poll-project.sh`, `tools/project-move.sh`
+
+### FB-26: Senior Dev Anti-Hallucination Live Symbol Verification
+- **Problem**: `role-senior-developer` can reference plausible-sounding but non-existent file paths, helper functions, or DTO interfaces, causing `role-implementer` to fail or bounce.
+- **Proposed Solution**:
+  - Mandate live codebase verification (`grep_search`, `find_by_name`, `view_file`) for every modified file path and reused symbol in `role-senior-developer/SKILL.md`, with an explicit `Verified Exists?` column in the `File Impact Matrix`.
+- **Affected Components**: `role-senior-developer/SKILL.md`, `role-architect/SKILL.md`
+
+### FB-27: Trivial Issue `[FAST-TRACK]` (`Senior Dev` $\rightarrow$ `Ready`)
+- **Problem**: Single-file bug fixes, copy tweaks, and docs updates go through a full 5-pillar `Architect` review, wasting `pro` model tokens and latency.
+- **Proposed Solution**:
+  - Empower `role-senior-developer` to tag plans as `[FAST-TRACK]` and transition directly from `Senior Dev` $\rightarrow$ `Ready` (bypassing `Architect`) when all 4 criteria hold: (1) $\le 2$ files modified, (2) 0 new dependencies, (3) 0 database schema/migration changes, and (4) 0 breaking contract changes.
+- **Affected Components**: `role-senior-developer/SKILL.md`, `role-architect/SKILL.md`, `AGENTS.md`, `instruction.md`
+
+### FB-28: Code Reviewer Line-Level Citations & Replacement Snippets
+- **Problem**: High-level prose review bullets force `role-implementer` to search the codebase to locate defects and guess the desired fix structure.
+- **Proposed Solution**:
+  - Require exact `path/to/file.ext:L<start>-L<end>` coordinates and minimal drop-in replacement code snippets for every blocker in `role-code-reviewer/SKILL.md`.
+- **Affected Components**: `role-code-reviewer/SKILL.md`, `instruction.md`
+
+### FB-29: QA Engineer Runtime Telemetry, Network 5xx & Keyboard A11y Gate
+- **Problem**: Visual Playwright inspection can miss silent `console.error` logs, unhandled `pageerror` exceptions, failed background API calls (`>=400`/`5xx`), or broken keyboard focus navigation.
+- **Proposed Solution**:
+  - Mandate Playwright `pageerror`, `console.error`, and HTTP `>=400`/`5xx` response listeners (0 unexpected errors allowed) plus keyboard `Tab`/`Enter`/`Escape` focus-ring and ARIA verification in `role-qa-engineer/SKILL.md`.
+- **Affected Components**: `role-qa-engineer/SKILL.md`, `instruction.md`
+
+---
+
 ## Batch Implementation Tracker
 
 | ID | Title | Priority | Status |
@@ -271,11 +332,12 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-18** | Zero-Downtime Database Migrations (Expand/Contract, Senior Dev & Architect) | High | ✅ Implemented |
 | **FB-19** | Test-Driven Development (TDD Red-Green-Refactor in Implementer) | High | ✅ Implemented |
 | **FB-20** | Grill-Me Relentless Clarification & Trade-off Grilling (PM Protocol) | High | ✅ Implemented |
-
-
-
-
-
-
-
-
+| **FB-21** | Backward-Transition Circuit Breaker (`project-move.sh --max-bounces`) | High | ✅ Implemented |
+| **FB-22** | Pending CI Wait in `--auto-bounce-ci` (`poll-project.sh`) | High | ✅ Implemented |
+| **FB-23** | Zero-Token Merge Conflict Gatekeeper (`poll-project.sh --auto-bounce-ci`) | High | ✅ Implemented |
+| **FB-24** | One-Shot Worker Execution + Fresh Subagent Respawn (`instruction.md`) | High | ✅ Implemented |
+| **FB-25** | Pagination Limit (`--limit 100`) in Project Poller & Mover | High | ✅ Implemented |
+| **FB-26** | Senior Dev Anti-Hallucination Live Symbol Verification | High | ✅ Implemented |
+| **FB-27** | Trivial Issue `[FAST-TRACK]` (`Senior Dev` $\rightarrow$ `Ready`) | Medium | ✅ Implemented |
+| **FB-28** | Code Reviewer Line-Level Citations & Replacement Snippets | High | ✅ Implemented |
+| **FB-29** | QA Engineer Runtime Telemetry, Network 5xx & Keyboard A11y Gate | High | ✅ Implemented |
