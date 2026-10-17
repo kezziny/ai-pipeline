@@ -83,21 +83,21 @@ When this command exits with status `0`, an issue in `QA` is ready for automated
 
 ## QA Testing Workflow
 
-### Step 1: Automated PR Checks Gate
-Before performing live exploratory or coverage audits, verify CI status:
+### Step 1: Hydrated Context & Automated PR Checks Gate (0 GraphQL Points)
+Fetch the issue description, PM acceptance criteria, linked PR number/branch, and CI check status in one local REST proxy call:
 ```bash
-gh pr checks <PR_NUMBER>
+tools/pipeline-api.sh issue <ISSUE_NUMBER>
 ```
-- **If any check is failing (red) or pending**:
+- **If any check is failing (`checks.state == "failure"`) or `mergeable == false`**:
   Immediately bounce back to `Implementer`:
   ```bash
-  gh pr comment <PR_NUMBER> --body "❌ Automated PR checks are failing. Please resolve failing CI checks before QA verification."
+  tools/pipeline-api.sh comment-pr <PR_NUMBER> --body "❌ Automated PR checks are failing or branch has merge conflicts. Please resolve before QA verification."
   tools/project-move.sh <ISSUE_NUMBER> --status "Implementer" --attention "Standard"
   ```
 - **If all checks are green**: Proceed to coverage and UX evaluation.
 
 ### Step 2: Test Coverage Adequacy Audit
-1. Fetch the issue description and review the PM's Acceptance Criteria.
+1. Review the PM's Acceptance Criteria from the hydrated `tools/pipeline-api.sh issue <ISSUE_NUMBER>` response.
 2. Inspect the test suites (`*.spec.ts`, `*_test.py`) added or modified in the PR.
 3. Determine whether the implemented tests sufficiently cover positive user flows, error handling, boundary values, and negative edge cases.
 4. If coverage is inadequate or missing critical acceptance tests, document missing scenarios and route back to `Implementer`.
@@ -160,7 +160,12 @@ Post this structured report as a comment on the Pull Request:
 ## GitHub Project Board Transitions
 
 ### Case A: QA Verification Passed (Merge to Done)
-1. Post approving QA report on the PR.
+1. Post approving QA report on the PR via the local REST proxy:
+   ```bash
+   tools/pipeline-api.sh comment-pr <PR_NUMBER> --body-file - <<'EOF'
+   <QA_REPORT_MARKDOWN>
+   EOF
+   ```
 2. Merge the Pull Request:
    ```bash
    gh pr merge <PR_NUMBER> --rebase --delete-branch

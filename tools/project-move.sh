@@ -30,6 +30,8 @@ Options:
   -o, --owner          Project owner (default from .project-config.json or $GH_PROJECT_OWNER)
   --max-bounces        Max backward transitions before circuit breaker escalates to 'Needs Decision' (default: 3)
   --reset-bounces      Reset backward transition bounce counter for this issue
+  -c, --comment        Optional issue comment to post atomically with the transition
+  --no-proxy           Bypass local Node.js REST proxy and use direct gh CLI calls
   -h, --help           Show this help message
 EOF
   exit "${1:-0}"
@@ -42,12 +44,14 @@ CONFIG_FILE="${ROOT_DIR}/.project-config.json"
 TARGET_REF=""
 TARGET_STATUS=""
 TARGET_ATTENTION=""
+TARGET_COMMENT=""
 PROJECT_NUMBER=""
 PROJECT_OWNER=""
 STATUS_FIELD="Status"
 ATTENTION_FIELD="Attention"
 MAX_BOUNCES="${GH_PROJECT_MAX_BOUNCES:-3}"
 RESET_BOUNCES=0
+USE_PROXY="${GH_PIPELINE_USE_PROXY:-1}"
 
 # Load defaults from config file if available
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -81,6 +85,10 @@ while [[ $# -gt 0 ]]; do
       TARGET_ATTENTION="$2"
       shift 2
       ;;
+    -c|--comment)
+      TARGET_COMMENT="$2"
+      shift 2
+      ;;
     -p|--project)
       PROJECT_NUMBER="$2"
       shift 2
@@ -95,6 +103,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --reset-bounces)
       RESET_BOUNCES=1
+      shift
+      ;;
+    --no-proxy)
+      USE_PROXY=0
       shift
       ;;
     *)
@@ -131,6 +143,30 @@ fi
 
 # Clean reference (e.g. "#42" -> "42")
 TARGET_REF="${TARGET_REF#"#"}"
+
+# Fast Path: Route through Local Node.js REST Proxy if issue number & proxy enabled
+if [[ "$USE_PROXY" -eq 1 ]] && [[ ! "$TARGET_REF" =~ ^PVTI_ ]] && [[ -x "${SCRIPT_DIR}/pipeline-api.sh" ]]; then
+  if [[ "$RESET_BOUNCES" -eq 1 ]] && [[ -z "$TARGET_STATUS" ]] && [[ -z "$TARGET_ATTENTION" ]]; then
+    rm -f "/tmp/gh-bounce-${PROJECT_OWNER}-${PROJECT_NUMBER}-${TARGET_REF}.count"
+    # If proxy is already running, also reset in-memory counter
+    if curl -fsS --max-time 1 "http://${GH_PIPELINE_HOST:-127.0.0.1}:${GH_PIPELINE_PORT:-4100}/health" >/dev/null 2>&1; then
+      "${SCRIPT_DIR}/pipeline-api.sh" transition "$TARGET_REF" --reset-bounces >/dev/null 2>&1 || true
+    fi
+    echo "[project-move] Reset bounce counter for #${TARGET_REF}"
+    exit 0
+  fi
+
+  MOVE_ARGS=("$TARGET_REF" "--max-bounces" "$MAX_BOUNCES")
+  [[ -n "$TARGET_STATUS" ]] && MOVE_ARGS+=("--status" "$TARGET_STATUS")
+  [[ -n "$TARGET_ATTENTION" ]] && MOVE_ARGS+=("--attention" "$TARGET_ATTENTION")
+  [[ -n "$TARGET_COMMENT" ]] && MOVE_ARGS+=("--comment" "$TARGET_COMMENT")
+  [[ "$RESET_BOUNCES" -eq 1 ]] && MOVE_ARGS+=("--reset-bounces")
+
+  if PROXY_OUT=$("${SCRIPT_DIR}/pipeline-api.sh" transition "${MOVE_ARGS[@]}" 2>/dev/null); then
+    echo "[project-move] (via local proxy) ${PROXY_OUT}"
+    exit 0
+  fi
+fi
 
 python3 - <<PYEOF
 import subprocess, json, sys, os, time

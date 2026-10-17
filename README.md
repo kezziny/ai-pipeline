@@ -373,15 +373,41 @@ You must run in a continuous autonomous loop:
 
 ## 7. Tooling Reference
 
-The pipeline includes standardized command-line tools under `tools/` to facilitate polling, transitions, and automated verification:
+The pipeline includes standardized command-line tools under `tools/` to facilitate local REST caching, polling, transitions, and automated verification:
+
+### `tools/pipeline-server.mjs` & `tools/pipeline-api.sh` (Local Node.js REST Proxy)
+Zero-dependency Node.js background server (`http://127.0.0.1:4100`) and CLI client that eliminate GitHub GraphQL and secondary rate limits:
+- **Slim 1-Point GraphQL Sync**: Polls only `Status` and `Attention` fields once per cycle (15x cheaper than `gh project item-list`).
+- **Conditional REST `ETag` Caching**: Serves issue bodies, comments, linked PRs, and CI check-runs via GitHub's REST bucket with `If-None-Match` (`304 Not Modified` = **0 rate-limit cost**).
+- **Instant `<5ms` Write-Through Wakeups**: Uses Node `EventEmitter` to wake waiting `/poll` requests the instant an agent transitions an issue.
+- **Batched Mutations & Paced Write Queue**: Combines `Status` + `Attention` updates into 1 GraphQL mutation and spaces writes at 1.2s to prevent secondary abuse rate limits.
+
+```bash
+# Start/check daemon status and rate-limit telemetry
+./tools/pipeline-api.sh start
+./tools/pipeline-api.sh status
+
+# Fetch hydrated issue context (body + comments + linked PR + CI checks) at 0 GraphQL cost
+./tools/pipeline-api.sh issue 42
+
+# Edit issue title/body or post comments via paced REST queue
+./tools/pipeline-api.sh edit-issue 42 --title "Feat: Auth" --body-file -
+./tools/pipeline-api.sh comment-issue 42 --body "Question..."
+
+# Watch PR CI checks via ETag-cached REST (0 GraphQL points)
+./tools/pipeline-api.sh checks 101 --wait
+
+# Submit PR review via paced REST queue
+./tools/pipeline-api.sh review-pr 101 --approve --body "✅ Approved"
+```
 
 ### `tools/poll-project.sh`
 Long-polling listener that enables autonomous agents to wait for assigned items in their target Status column and Attention swimlane.
-Features **shared local caching** (`/tmp/gh-project-cache-<owner>-<num>.json` with 25s TTL, `--limit 100`, and file-locking) so that all 6 concurrent agents share a single GraphQL query, reducing API load by 83%+. Includes automatic backoff if rate limits drop below 200 points:
+Routes through the local Node.js REST proxy (`GET /poll`) by default for `<5ms` write-through wakeups, falling back to shared file cache (`/tmp/gh-project-cache-<owner>-<num>.json`) if `--no-proxy` is passed:
 - `--compact` (`-q`): Outputs single-line match banner (`[poll-project] MATCH: #42...`) saving LLM context tokens.
 - `--auto-bounce-ci`: Zero-token script gatekeeper:
-  1. Checks PR `mergeable` state; if `CONFLICTING`, auto-comments and bounces card back to `Implementer` in pure bash (0 LLM tokens).
-  2. Checks PR CI status checks (`gh pr checks`); if failing (`fail|error|cancel`), auto-comments failure logs and bounces card to `Implementer` (0 LLM tokens).
+  1. Checks PR `mergeable` state; if `CONFLICTING`, auto-comments and bounces card back to `Implementer` in pure bash/Node (0 LLM tokens).
+  2. Checks PR CI status checks; if failing (`fail|error|cancel`), auto-comments failure logs and bounces card to `Implementer` (0 LLM tokens).
   3. If CI checks are still running (`pending|in_progress|queued|waiting`), keeps sleeping until checks finish before waking the agent.
 
 ```bash
@@ -396,11 +422,11 @@ Features **shared local caching** (`/tmp/gh-project-cache-<owner>-<num>.json` wi
 
 ### `tools/project-move.sh`
 CLI utility to update an issue's column Status and Attention swimlane on GitHub Projects v2.
-Caches static project metadata (`projectId`, `fields`, and options) in `/tmp/gh-project-metadata-<owner>-<num>.json` for 24 hours, queries up to `--limit 100` items, and automatically invalidates the items cache upon move so pollers detect changes immediately.
+Routes through the local Node.js REST proxy (`POST /issues/:num/transition`) by default to batch `Status` + `Attention` into 1 GraphQL mutation and wake waiting pollers in `<5ms`.
 Includes an automatic **Backward-Transition Circuit Breaker**: tracks backward moves in `/tmp/gh-bounce-<owner>-<num>-<issue>.count` and auto-escalates `Attention` to `Needs Decision` when an issue bounces backward `--max-bounces` times (default: `3`). Counter resets automatically when reaching `Ready` or `Done`, or via `--reset-bounces`:
 ```bash
-# Move status column
-./tools/project-move.sh 42 --status "Senior Dev"
+# Move status column (and optionally post comment atomically)
+./tools/project-move.sh 42 --status "Senior Dev" --comment "Ready for tech plan"
 
 # Escalate to top swimlane
 ./tools/project-move.sh 42 --attention "Needs Decision"

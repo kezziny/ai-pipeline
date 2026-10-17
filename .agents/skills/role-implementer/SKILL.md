@@ -90,10 +90,10 @@ When this command terminates with status `0`, an issue in the `Implementer` colu
 
 ## Step-by-Step Implementation Workflow
 
-### Step 1: Issue Inspection
-Inspect the issue requirements and technical plan:
+### Step 1: Hydrated Issue & PR Inspection (0 GraphQL Points)
+Fetch the issue description, technical plan, comments, and any existing linked PR in a single local REST proxy call:
 ```bash
-gh issue view <ISSUE_NUMBER> --json title,body
+tools/pipeline-api.sh issue <ISSUE_NUMBER>
 ```
 
 ---
@@ -105,10 +105,7 @@ To enable concurrent work without branch conflicts, operate inside `.worktrees/i
    ```bash
    git fetch origin master
    ```
-2. Check if a branch or PR already exists for the issue:
-   ```bash
-   gh pr list --search "<ISSUE_NUMBER>" --json number,headRefName,isDraft,url
-   ```
+2. Check the `pr` field from `tools/pipeline-api.sh issue <ISSUE_NUMBER>` to see if a branch/PR already exists.
 3. **If starting a new branch**:
    ```bash
    WORKTREE_DIR=".worktrees/issue-<ISSUE_NUMBER>"
@@ -159,18 +156,15 @@ cd "$WORKTREE_DIR"
 
 #### Case B: Addressing Review or QA Feedback
 When the issue was moved back to `Implementer` from `Code Review` or `QA`:
-1. Read the latest review comments or QA logs from the PR:
-   ```bash
-   gh pr view <PR_NUMBER> --comments
-   ```
+1. Inspect the review comments and QA logs returned by `tools/pipeline-api.sh issue <ISSUE_NUMBER>`.
 2. Address each observation and make the required code corrections.
 3. Commit the fixes with a clear message:
    ```bash
    git commit -m "fix(issue-<ISSUE_NUMBER>): address feedback on <topic>"
    ```
-4. Reply directly to each review comment on GitHub with a concise summary of the resolution:
+4. Reply to review comments via the paced local REST proxy:
    ```bash
-   gh pr comment <PR_NUMBER> --body "Fixed in latest commit: <brief summary of changes>."
+   tools/pipeline-api.sh comment-pr <PR_NUMBER> --body "Fixed in latest commit: <brief summary of changes>."
    ```
 
 ---
@@ -195,16 +189,14 @@ Inside `$WORKTREE_DIR`, run verification before handover:
    ```bash
    git push origin "$BRANCH_NAME"
    ```
-4. **Mandatory Gate: Wait for Green PR Checks**:
+4. **Mandatory Gate: Wait for Green PR Checks via Local Proxy (0 GraphQL Points)**:
    Do NOT transition the issue to `Code Review` until all automated CI checks pass on GitHub:
    ```bash
-   # Watch checks until complete
-   gh pr checks <PR_NUMBER> --watch || true
-   # Verify all checks are passing
-   gh pr checks <PR_NUMBER>
+   # Watch checks via ETag-cached REST endpoint until complete
+   tools/pipeline-api.sh checks <PR_NUMBER> --wait
    ```
    If any check fails:
-   - Inspect check failure details (`gh pr checks <PR_NUMBER>`).
+   - Inspect check failure details in the JSON output of `tools/pipeline-api.sh checks <PR_NUMBER>`.
    - Fix the defect locally in `$WORKTREE_DIR`.
    - Commit and push fixes, and re-run check verification.
 5. Return to repository root:
@@ -221,16 +213,12 @@ Once local checks pass and code is pushed:
    ```bash
    gh pr ready <PR_NUMBER>
    ```
-2. **Transition Project Board Status**:
+2. **Transition Project Board Status & Post Handover Comment Atomically**:
    Move item to `Code Review` with `Attention: Standard`:
    ```bash
-   tools/project-move.sh <ISSUE_NUMBER> --status "Code Review" --attention "Standard"
+   tools/project-move.sh <ISSUE_NUMBER> --status "Code Review" --attention "Standard" --comment "Implementation complete and verified. PR #<PR_NUMBER> is ready for code review."
    ```
-3. Post a handover comment on the issue/PR:
-   ```bash
-   gh issue comment <ISSUE_NUMBER> --body "Implementation complete and verified. PR #<PR_NUMBER> is ready for code review."
-   ```
-4. **Remove the Temporary Worktree**:
+3. **Remove the Temporary Worktree**:
    ```bash
    git worktree remove "$WORKTREE_DIR" --force
    ```
