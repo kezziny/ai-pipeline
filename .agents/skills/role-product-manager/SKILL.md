@@ -147,23 +147,25 @@ Always formatted in English, concise and checklist-driven:
 ---
 
 ## GitHub Issue & Project Synchronization Procedure
-Always use `gh` (or `gh-bot`) so comments and edits are published under the GitHub App bot identity.
+Use `tools/pipeline-api.sh` (backed by the local Node.js REST proxy `tools/pipeline-server.mjs`) for issue reads, edits, and comments to avoid GitHub GraphQL rate limits:
 
-Once the specification is prepared:
+0. **Inspect Hydrated Issue Context (0 GraphQL Points)**:
+   ```bash
+   tools/pipeline-api.sh issue <ISSUE_NUMBER>
+   ```
 
 1. **Update Issue Title & Description**:
    Synchronize the issue title with the formalized feature name and replace the description with the minimalist specification:
    ```bash
-   gh issue edit <ISSUE_NUMBER> --title "<Feature Name>: Specification" --body-file - <<'EOF'
+   tools/pipeline-api.sh edit-issue <ISSUE_NUMBER> --title "<Feature Name>: Specification" --body-file - <<'EOF'
    <PASTE_MINIMALIST_SPEC_MARKDOWN>
    EOF
    ```
-   *(Or clean feature title e.g. `gh issue edit <ISSUE_NUMBER> --title "Implement JWT Authentication" --body-file -`)*
 
 2. **Publish Open Questions (Grill-Me Structured Trade-offs)**:
    If unresolved questions or external decisions remain, post them as an issue comment with sharp trade-off options:
    ```bash
-   gh issue comment <ISSUE_NUMBER> --body-file - <<'EOF'
+   tools/pipeline-api.sh comment-issue <ISSUE_NUMBER> --body-file - <<'EOF'
    ### ❓ Open Questions / Stakeholder Decisions Needed (Grill-Me)
    #### 1. [Decision Area]
    - **Option A (Recommended)**: [Approach] — *Pros: X, Cons: Y*

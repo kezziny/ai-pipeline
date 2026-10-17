@@ -90,15 +90,15 @@ When this command terminates with status `0`, an issue in `Code Review` with `At
 
 ## Review Workflow & Worktree Verification
 
-### Step 1: Automated PR Checks Gate
-Before performing manual or diff analysis, query GitHub PR status checks:
+### Step 1: Hydrated Context & Automated PR Checks Gate (0 GraphQL Points)
+Fetch issue requirements, comments, linked PR metadata, mergeable status, and CI check-runs in one call via the local REST proxy:
 ```bash
-gh pr checks <PR_NUMBER>
+tools/pipeline-api.sh issue <ISSUE_NUMBER>
 ```
-- **If any check is failing (red) or pending**:
+- **If any check is failing (`checks.state == "failure"`) or `mergeable == false`**:
   Immediately post feedback on the PR and bounce back to `Implementer`:
   ```bash
-  gh pr comment <PR_NUMBER> --body "❌ Automated PR checks are failing. Please fix failing CI checks before code review."
+  tools/pipeline-api.sh comment-pr <PR_NUMBER> --body "❌ Automated PR checks are failing or branch has merge conflicts. Please resolve before code review."
   tools/project-move.sh <ISSUE_NUMBER> --status "Implementer" --attention "Standard"
   ```
 - **If all checks are green**: Proceed to diff inspection.
@@ -181,9 +181,11 @@ Post the structured review report as a comment on the Pull Request:
 
 ### Case A: Changes Requested / Fixes Needed
 If code flaws, broken tests, or regressions are found:
-1. Submit review feedback requesting changes:
+1. Submit review feedback requesting changes via the local REST proxy:
    ```bash
-   gh pr review <PR_NUMBER> --request-changes -b "<REVIEW_REPORT_MARKDOWN>"
+   tools/pipeline-api.sh review-pr <PR_NUMBER> --request-changes --body-file - <<'EOF'
+   <REVIEW_REPORT_MARKDOWN>
+   EOF
    ```
 2. Return project item to `Implementer` with `Attention: Standard`:
    ```bash
@@ -192,9 +194,9 @@ If code flaws, broken tests, or regressions are found:
 
 ### Case B: AI Review Approved (Ready for Human Review)
 If all verification passes and code meets all architectural standards:
-1. Submit approving review comment on PR:
+1. Submit approving review comment on PR via the local REST proxy:
    ```bash
-   gh pr review <PR_NUMBER> --approve -b "✅ AI Code Review: Approved. Ready for human review sign-off."
+   tools/pipeline-api.sh review-pr <PR_NUMBER> --approve --body "✅ AI Code Review: Approved. Ready for human review sign-off."
    ```
 2. Ensure PR is marked ready for review:
    ```bash
