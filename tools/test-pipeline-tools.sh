@@ -288,6 +288,84 @@ else
   test_fail "Missing --limit pagination in poller or mover"
 fi
 
+# -----------------------------------------------------------------------------
+# Test 7: Node.js Local REST API Proxy Server & CLI Integration (FB-30)
+# -----------------------------------------------------------------------------
+suite_header "Test 7: Node.js Local REST API Proxy (pipeline-server.mjs & pipeline-api.sh)"
+
+chmod +x "${SCRIPT_DIR}/pipeline-server.mjs" "${SCRIPT_DIR}/pipeline-api.sh"
+
+if "${SCRIPT_DIR}/pipeline-api.sh" --help >/dev/null; then
+  test_pass "pipeline-api.sh --help exits 0"
+else
+  test_fail "pipeline-api.sh --help failed"
+fi
+
+export GH_PIPELINE_PORT=4199
+export GH_PIPELINE_MOCK=1
+export GH_PROJECT_OWNER="kezziny"
+export GH_PROJECT_NUMBER=1
+export GH_REPO="kezziny/ai-pipeline"
+
+"${SCRIPT_DIR}/pipeline-api.sh" stop >/dev/null 2>&1 || true
+if "${SCRIPT_DIR}/pipeline-api.sh" start >/dev/null 2>&1; then
+  test_pass "pipeline-server.mjs daemon starts cleanly in mock mode"
+else
+  test_fail "pipeline-server.mjs daemon failed to start"
+fi
+
+HEALTH_JSON=$("${SCRIPT_DIR}/pipeline-api.sh" status)
+if echo "$HEALTH_JSON" | grep -q '"ok":true'; then
+  test_pass "GET /health returns ok:true with rate-limit telemetry"
+else
+  test_fail "GET /health check failed: ${HEALTH_JSON}"
+fi
+
+CTX_JSON=$("${SCRIPT_DIR}/pipeline-api.sh" issue 42)
+if echo "$CTX_JSON" | grep -q '"number":42' && echo "$CTX_JSON" | grep -q '"headRefName":"feature/42-local-rest-proxy"'; then
+  test_pass "GET /issues/42/context hydrates issue, comments, PR, and checks"
+else
+  test_fail "GET /issues/42/context failed: ${CTX_JSON}"
+fi
+
+EDIT_JSON=$("${SCRIPT_DIR}/pipeline-api.sh" edit-issue 42 --title "Updated Proxy Title" --body "Updated spec body")
+if echo "$EDIT_JSON" | grep -q '"title":"Updated Proxy Title"'; then
+  test_pass "PATCH /issues/42 updates issue title and body via REST queue"
+else
+  test_fail "PATCH /issues/42 failed: ${EDIT_JSON}"
+fi
+
+CHK_JSON=$("${SCRIPT_DIR}/pipeline-api.sh" checks 101)
+if echo "$CHK_JSON" | grep -q '"state":"success"'; then
+  test_pass "GET /prs/101/checks returns ETag-cached REST check-runs"
+else
+  test_fail "GET /prs/101/checks failed: ${CHK_JSON}"
+fi
+
+# Verify poll-project.sh matches #42 in PM via proxy
+POLL_MATCH=$("${SCRIPT_DIR}/poll-project.sh" --status "PM" --attention "Standard" --compact --interval 2)
+if echo "$POLL_MATCH" | grep -q "MATCH: #42"; then
+  test_pass "poll-project.sh matches #42 via local Node.js REST proxy"
+else
+  test_fail "poll-project.sh proxy match failed: ${POLL_MATCH}"
+fi
+
+# Verify project-move.sh transitions #42 to Architect and triggers 3-bounce circuit breaker on backward moves
+"${SCRIPT_DIR}/project-move.sh" 42 --reset-bounces >/dev/null
+"${SCRIPT_DIR}/project-move.sh" 42 --status "Architect" --attention "Standard" >/dev/null
+"${SCRIPT_DIR}/project-move.sh" 42 --status "Senior Dev" --attention "Standard" >/dev/null
+"${SCRIPT_DIR}/project-move.sh" 42 --status "Architect" --attention "Standard" >/dev/null
+"${SCRIPT_DIR}/project-move.sh" 42 --status "Senior Dev" --attention "Standard" >/dev/null
+"${SCRIPT_DIR}/project-move.sh" 42 --status "Architect" --attention "Standard" >/dev/null
+CB_OUT=$("${SCRIPT_DIR}/project-move.sh" 42 --status "Senior Dev" --attention "Standard")
+if echo "$CB_OUT" | grep -q '"circuitBreakerTriggered":true' && echo "$CB_OUT" | grep -q '"attention":"Needs Decision"'; then
+  test_pass "POST /issues/42/transition triggers 3-bounce circuit breaker and escalates to Needs Decision"
+else
+  test_fail "Proxy circuit breaker failed: ${CB_OUT}"
+fi
+
+"${SCRIPT_DIR}/pipeline-api.sh" stop >/dev/null 2>&1 || true
+
 echo "================================================================="
 echo -e "Test Results: ${GREEN}${PASSED} passed${NC}, ${RED}${FAILED} failed${NC}"
 echo "================================================================="

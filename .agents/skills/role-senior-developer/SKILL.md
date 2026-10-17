@@ -224,17 +224,18 @@ export interface ExampleResponseDto {
 ---
 
 ## GitHub Issue & Project Board Synchronization
-Use `gh` to perform issue operations under the bot identity (`No Git Sherlock [bot]`).
+Use `tools/pipeline-api.sh` (backed by the local Node.js REST proxy `tools/pipeline-server.mjs`) to perform issue operations with zero GraphQL rate-limit burn.
 
-### Step 1: Fetch Current Issue Body
+### Step 1: Fetch Hydrated Issue Context (Body + Comments + PR)
 ```bash
-BODY=$(gh issue view <ISSUE_NUMBER> --json body -q .body)
+ISSUE_CTX=$(tools/pipeline-api.sh issue <ISSUE_NUMBER>)
+BODY=$(node -e 'console.log(JSON.parse(process.argv[1]).body || "")' "$ISSUE_CTX")
 ```
 
 ### Step 2: Append Plan to Issue Description
 Combine the existing specification with the new implementation plan:
 ```bash
-gh issue edit <ISSUE_NUMBER> --body-file - <<'EOF'
+tools/pipeline-api.sh edit-issue <ISSUE_NUMBER> --body-file - <<'EOF'
 <EXISTING_BODY>
 
 <IMPLEMENTATION_PLAN_MARKDOWN>
@@ -245,7 +246,7 @@ EOF
 - **Case A: Unresolved Questions / Stakeholder Decisions Needed**
   1. Post technical questions as an issue comment:
      ```bash
-     gh issue comment <ISSUE_NUMBER> --body-file - <<'EOF'
+     tools/pipeline-api.sh comment-issue <ISSUE_NUMBER> --body-file - <<'EOF'
      ### ❓ Technical Decisions Needed
      1. [Trade-off / Architectural Decision]
      EOF
@@ -264,6 +265,5 @@ EOF
 - **Case C: Trivial `[FAST-TRACK]` Plan Complete ($\le 2$ files, 0 new deps, 0 schema/contract changes)**
   Post fast-track notice comment and move directly to `Ready` (bypassing `Architect`):
   ```bash
-  gh issue comment <ISSUE_NUMBER> --body "⚡ **[FAST-TRACK] Approved**: Trivial scope (<=2 files, 0 new dependencies, 0 schema/contract changes). Routing directly to **Ready**."
-  tools/project-move.sh <ISSUE_NUMBER> --status "Ready" --attention "Standard"
+  tools/project-move.sh <ISSUE_NUMBER> --status "Ready" --attention "Standard" --comment "⚡ **[FAST-TRACK] Approved**: Trivial scope (<=2 files, 0 new dependencies, 0 schema/contract changes). Routing directly to **Ready**."
   ```

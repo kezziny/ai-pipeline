@@ -168,16 +168,16 @@ The issue is approved and moved to **Ready** (implementation backlog, awaiting d
 ---
 
 ## GitHub Issue & Project Board Synchronization
-Follow these commands to inspect the plan, submit architect feedback, and transition project status:
+Use `tools/pipeline-api.sh` (backed by the local Node.js REST proxy `tools/pipeline-server.mjs`) to inspect the plan, submit architect feedback, and transition project status without burning GraphQL rate limits:
 
-### Step 1: Fetch Current Issue Body
+### Step 1: Fetch Hydrated Issue Context
 ```bash
-BODY=$(gh issue view <ISSUE_NUMBER> --json body -q .body)
+tools/pipeline-api.sh issue <ISSUE_NUMBER>
 ```
 
 ### Step 2: Post Review Feedback Comment
 ```bash
-gh issue comment <ISSUE_NUMBER> --body-file - <<'EOF'
+tools/pipeline-api.sh comment-issue <ISSUE_NUMBER> --body-file - <<'EOF'
 <ARCHITECT_COMMENT_MARKDOWN>
 EOF
 ```

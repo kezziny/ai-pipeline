@@ -103,8 +103,12 @@ while [[ $# -gt 0 ]]; do
       COMPACT=1
       shift
       ;;
-    --auto-bounce-ci)
+      --auto-bounce-ci)
       AUTO_BOUNCE_CI=1
+      shift
+      ;;
+    --no-proxy)
+      USE_PROXY=0
       shift
       ;;
     *)
@@ -136,11 +140,54 @@ elif [[ -x "$HOME/.config/gh/gh-bot" ]]; then
   GH_CMD="$HOME/.config/gh/gh-bot"
 fi
 
+USE_PROXY="${USE_PROXY:-${GH_PIPELINE_USE_PROXY:-1}}"
+PROXY_PORT="${GH_PIPELINE_PORT:-4100}"
+PROXY_HOST="${GH_PIPELINE_HOST:-127.0.0.1}"
+
 trap 'echo ""; echo "[poll-project] Polling aborted."; exit 130' INT TERM
 
 echo "[poll-project] Watching Project #${PROJECT_NUMBER} (${PROJECT_OWNER}) for items with Status='${TARGET_STATUS}' and Attention='${TARGET_ATTENTION}' (interval: ${POLL_INTERVAL}s, cache TTL: ${CACHE_TTL}s)..."
 
 while true; do
+  # Fast Path: Query Local Node.js REST Proxy (EventEmitter instant wakeup + ETag/Slim GraphQL)
+  if [[ "$USE_PROXY" -eq 1 ]] && [[ -x "${SCRIPT_DIR}/pipeline-api.sh" ]]; then
+    if "${SCRIPT_DIR}/pipeline-api.sh" ensure >/dev/null 2>&1; then
+      ENC_STATUS=$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$TARGET_STATUS")
+      ENC_ATT=$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$TARGET_ATTENTION")
+      POLL_RESP=$(curl -fsS --max-time $((POLL_INTERVAL + 10)) "http://${PROXY_HOST}:${PROXY_PORT}/poll?status=${ENC_STATUS}&attention=${ENC_ATT}&auto_bounce_ci=${AUTO_BOUNCE_CI}&timeout=${POLL_INTERVAL}" 2>/dev/null || true)
+      if [[ -n "$POLL_RESP" ]]; then
+        PARSED=$(node -e '
+          try {
+            const d = JSON.parse(process.argv[1]);
+            if (d.matched && d.item) {
+              console.log(`${d.item.number}\t${d.item.title || ""}\t${d.item.url || ""}\t${d.item.itemId || ""}`);
+            }
+          } catch {}
+        ' "$POLL_RESP" 2>/dev/null || true)
+        if [[ -n "$PARSED" ]]; then
+          ISSUE_NUM=$(echo "$PARSED" | cut -f1)
+          ISSUE_TITLE=$(echo "$PARSED" | cut -f2)
+          ISSUE_URL=$(echo "$PARSED" | cut -f3)
+          ITEM_ID=$(echo "$PARSED" | cut -f4)
+          if [[ "$COMPACT" -eq 1 ]]; then
+            echo "[poll-project] MATCH: #${ISSUE_NUM} \"${ISSUE_TITLE}\" (Status: ${TARGET_STATUS}, ID: ${ITEM_ID})"
+          else
+            echo ""
+            echo "[poll-project] MATCH FOUND!"
+            echo "  Issue   : #${ISSUE_NUM} - ${ISSUE_TITLE}"
+            echo "  Status  : ${TARGET_STATUS}"
+            echo "  Attention: ${TARGET_ATTENTION}"
+            echo "  Item ID : ${ITEM_ID}"
+            echo "  URL     : ${ISSUE_URL}"
+            echo ""
+          fi
+          exit 0
+        fi
+        continue
+      fi
+    fi
+  fi
+
   FOUND=$(
     python3 - <<PYEOF
 import subprocess, json, sys, os, time, fcntl

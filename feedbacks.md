@@ -306,6 +306,16 @@ This document aggregates architectural refinements, role enhancements, and workf
   - Mandate Playwright `pageerror`, `console.error`, and HTTP `>=400`/`5xx` response listeners (0 unexpected errors allowed) plus keyboard `Tab`/`Enter`/`Escape` focus-ring and ARIA verification in `role-qa-engineer/SKILL.md`.
 - **Affected Components**: `role-qa-engineer/SKILL.md`, `instruction.md`
 
+### FB-30: Zero-Dependency Node.js Local REST API Proxy (`tools/pipeline-server.mjs` & `tools/pipeline-api.sh`)
+- **Problem**: `gh` CLI subcommands (`gh issue view`, `gh pr list`, `gh pr view`, `gh pr checks --watch`, `gh project item-list`) consume heavy GraphQL quota and trigger secondary abuse rate limits when 6 agents read, comment, edit, and poll concurrently.
+- **Proposed Solution**:
+  - Implement a zero-dependency Node.js local REST proxy (`tools/pipeline-server.mjs`) and CLI client (`tools/pipeline-api.sh`):
+    1. **Slim 1-Point GraphQL Sync**: Polls only `Status` and `Attention` fields on the board instead of all 20+ fields.
+    2. **REST + `ETag` Offloading**: Routes issue reads, comments, edits, PR reviews, and CI check-runs through GitHub's separate 5,000 req/hr REST pool with `If-None-Match` (`304 Not Modified` = 0 quota).
+    3. **Instant Write-Through Long-Polling**: Uses Node `EventEmitter` so `POST /issues/:num/transition` wakes waiting `GET /poll` clients in `<5ms`.
+    4. **Batched Mutations & Serialized Write Queue**: Combines `Status` + `Attention` into 1 aliased GraphQL mutation and spaces writes at 1.2s to eliminate secondary rate limits.
+- **Affected Components**: `tools/pipeline-server.mjs`, `tools/pipeline-api.sh`, `tools/poll-project.sh`, `tools/project-move.sh`, `.agents/skills/*/SKILL.md`, `instruction.md`, `README.md`
+
 ---
 
 ## Batch Implementation Tracker
@@ -341,3 +351,4 @@ This document aggregates architectural refinements, role enhancements, and workf
 | **FB-27** | Trivial Issue `[FAST-TRACK]` (`Senior Dev` $\rightarrow$ `Ready`) | Medium | ✅ Implemented |
 | **FB-28** | Code Reviewer Line-Level Citations & Replacement Snippets | High | ✅ Implemented |
 | **FB-29** | QA Engineer Runtime Telemetry, Network 5xx & Keyboard A11y Gate | High | ✅ Implemented |
+| **FB-30** | Zero-Dependency Node.js Local REST API Proxy (`pipeline-server.mjs`) | High | ✅ Implemented |
